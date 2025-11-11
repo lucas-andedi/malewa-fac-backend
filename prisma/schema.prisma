@@ -1,0 +1,222 @@
+// Prisma schema for Malewa-Fac (MySQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  client
+  merchant
+  courier
+  admin
+}
+
+enum UserStatus {
+  active
+  suspended
+  pending
+}
+
+enum OrderStatus {
+  received
+  preparing
+  ready
+  delivering
+  delivered
+  rejected
+}
+
+enum DeliveryMethod {
+  pickup
+  campus
+  offcampus
+}
+
+enum PaymentMethod {
+  mobile
+  card
+  cod
+}
+
+enum DeliveryMissionStatus {
+  available
+  accepted
+  picked
+  enroute
+  delivered
+}
+
+enum Beneficiary {
+  merchant
+  courier
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  refunded
+}
+
+model Institution {
+  id    Int     @id @default(autoincrement())
+  code  String  @unique
+  name  String
+  users User[]
+  restaurants Restaurant[]
+}
+
+model User {
+  id             Int        @id @default(autoincrement())
+  name           String
+  email          String?    @unique
+  phone          String?    @unique
+  passwordHash   String?
+  role           UserRole
+  status         UserStatus @default(active)
+  institutionId  Int?
+  institution    Institution? @relation(fields: [institutionId], references: [id])
+  restaurants    Restaurant[] @relation("RestaurantOwner")
+  orders         Order[]      @relation("OrderCustomer")
+  missions       DeliveryMission[] @relation("MissionCourier")
+  notifications  Notification[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model Restaurant {
+  id                 Int       @id @default(autoincrement())
+  code               String?   @unique
+  name               String
+  institutionId      Int
+  institution        Institution @relation(fields: [institutionId], references: [id])
+  ownerUserId        Int?
+  owner              User?      @relation("RestaurantOwner", fields: [ownerUserId], references: [id])
+  rating             Decimal?   @db.Decimal(3, 2)
+  deliveryFeeCampus  Int        @default(2000)
+  photoUrl           String?
+  createdAt          DateTime   @default(now())
+  dishes             Dish[]
+  orders             Order[]
+  missions           DeliveryMission[]
+}
+
+model Dish {
+  id           Int        @id @default(autoincrement())
+  code         String?    @unique
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  name         String
+  description  String?
+  price        Int
+  photoUrl     String?
+  available    Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  orderItems   OrderItem[]
+
+  @@unique([restaurantId, name])
+}
+
+model Order {
+  id                 Int          @id @default(autoincrement())
+  code               String       @unique
+  customerUserId     Int
+  customer           User         @relation("OrderCustomer", fields: [customerUserId], references: [id])
+  customerName       String
+  restaurantId       Int
+  restaurant         Restaurant   @relation(fields: [restaurantId], references: [id])
+  subtotal           Int
+  serviceFee         Int
+  deliveryMethod     DeliveryMethod
+  deliveryFee        Int
+  total              Int
+  paymentMethod      PaymentMethod
+  address            String?
+  estimatedDistanceKm Float?
+  status             OrderStatus  @default(received)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  items              OrderItem[]
+  missions           DeliveryMission[]
+  payments           Payment[]
+  transactions       Transaction[]
+}
+
+model OrderItem {
+  id       Int   @id @default(autoincrement())
+  orderId  Int
+  order    Order @relation(fields: [orderId], references: [id])
+  dishId   Int
+  dish     Dish  @relation(fields: [dishId], references: [id])
+  name     String
+  price    Int
+  qty      Int
+}
+
+model DeliveryMission {
+  id                  Int        @id @default(autoincrement())
+  orderId             Int
+  order               Order      @relation(fields: [orderId], references: [id])
+  restaurantId        Int
+  restaurant          Restaurant @relation(fields: [restaurantId], references: [id])
+  courierUserId       Int?
+  courier             User?      @relation("MissionCourier", fields: [courierUserId], references: [id])
+  restaurantLocation  String
+  customerLocation    String
+  customerPhone       String
+  status              DeliveryMissionStatus @default(available)
+  earning             Int
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+}
+
+model Payment {
+  id           Int          @id @default(autoincrement())
+  orderId      Int
+  order        Order        @relation(fields: [orderId], references: [id])
+  method       PaymentMethod
+  provider     String?
+  providerRef  String?
+  amount       Int
+  status       PaymentStatus @default(pending)
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+}
+
+model Transaction {
+  id           Int          @id @default(autoincrement())
+  orderId      Int
+  order        Order        @relation(fields: [orderId], references: [id])
+  beneficiary  Beneficiary
+  amount       Int
+  commission   Int          @default(0)
+  netAmount    Int
+  status       String       @default("pending")
+  createdAt    DateTime     @default(now())
+}
+
+model Setting {
+  id     Int    @id @default(autoincrement())
+  skey   String @unique
+  svalue String @db.LongText
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  message   String?
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}

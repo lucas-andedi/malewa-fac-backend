@@ -1,0 +1,13 @@
+node_modules
+.dist
+dist
+.env
+.env.*
+!.env.example
+.prisma
+.prisma/*
+coverage
+.tmp
+npm-debug.log*
+yarn-error.log*
+.DS_Store

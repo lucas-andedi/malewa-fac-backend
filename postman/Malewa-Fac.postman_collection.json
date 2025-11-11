@@ -1,0 +1,193 @@
+{
+  "info": {
+    "_postman_id": "8b7f4d9a-7b6d-4c9f-9d8a-3c3d9b6bb001",
+    "name": "Malewa-Fac API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/register (client)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Client Demo\",\n  \"email\": \"client1@demo.local\",\n  \"password\": \"password123\",\n  \"role\": \"client\",\n  \"institutionCode\": \"unikin\"\n}"
+            },
+            "url": {"raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"]}
+          }
+        },
+        {
+          "name": "POST /auth/login (client)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.accessToken) { pm.environment.set('clientToken', data.accessToken); }",
+                  "if (data && data.refreshToken) { pm.environment.set('clientRefreshToken', data.refreshToken); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{clientEmail}}\",\n  \"password\": \"{{clientPassword}}\"\n}"
+            },
+            "url": {"raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"]}
+          }
+        },
+        {
+          "name": "POST /auth/login (merchant)",
+          "event": [
+            {"listen": "test", "script": {"type": "text/javascript", "exec": [
+              "const data = pm.response.json();",
+              "if (data && data.accessToken) { pm.environment.set('merchantToken', data.accessToken); }"
+            ]}}
+          ],
+          "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{merchantEmail}}\",\n  \"password\": \"{{merchantPassword}}\"\n}"}, "url": {"raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"]}}
+        },
+        {
+          "name": "POST /auth/login (courier)",
+          "event": [
+            {"listen": "test", "script": {"type": "text/javascript", "exec": [
+              "const data = pm.response.json();",
+              "if (data && data.accessToken) { pm.environment.set('courierToken', data.accessToken); }"
+            ]}}
+          ],
+          "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{courierEmail}}\",\n  \"password\": \"{{courierPassword}}\"\n}"}, "url": {"raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"]}}
+        },
+        {
+          "name": "POST /auth/login (admin)",
+          "event": [
+            {"listen": "test", "script": {"type": "text/javascript", "exec": [
+              "const data = pm.response.json();",
+              "if (data && data.accessToken) { pm.environment.set('adminToken', data.accessToken); }"
+            ]}}
+          ],
+          "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"}, "url": {"raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"]}}
+        },
+        {
+          "name": "GET /auth/me",
+          "request": {"method": "GET", "header": [{"key": "Authorization", "value": "Bearer {{clientToken}}"}], "url": {"raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth","me"]}}
+        }
+      ]
+    },
+    {
+      "name": "Institutions",
+      "item": [
+        {"name": "GET /institutions", "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/v1/institutions", "host": ["{{baseUrl}}"], "path": ["api","v1","institutions"]}}}
+      ]
+    },
+    {
+      "name": "Restaurants",
+      "item": [
+        {"name": "GET /restaurants?institutionCode=unikin", "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/v1/restaurants?institutionCode=unikin", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurants"], "query": [{"key": "institutionCode", "value": "unikin"}]}}},
+        {"name": "GET /restaurants/:id", "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurants","{{restaurantId}}"]}}},
+        {"name": "GET /restaurants/:id/dishes", "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/dishes", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurants","{{restaurantId}}","dishes"]}}},
+        {"name": "POST /restaurants/:id/dishes (merchant)", "request": {"method": "POST", "header": [{"key": "Authorization", "value": "Bearer {{merchantToken}}"}, {"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"name\": \"Nouveau plat\",\n  \"description\": \"Test\",\n  \"price\": 3000,\n  \"available\": true\n}"}, "url": {"raw": "{{baseUrl}}/api/v1/restaurants/{{restaurantId}}/dishes", "host": ["{{baseUrl}}"], "path": ["api","v1","restaurants","{{restaurantId}}","dishes"]}}}
+      ]
+    },
+    {
+      "name": "Dishes",
+      "item": [
+        {"name": "PATCH /dishes/:id (merchant)", "request": {"method":"PATCH","header":[{"key":"Authorization","value":"Bearer {{merchantToken}}"},{"key":"Content-Type","value":"application/json"}], "body":{"mode":"raw","raw":"{\n  \"name\": \"Nom mis à jour\",\n  \"price\": 3500,\n  \"available\": true\n}"}, "url":{"raw":"{{baseUrl}}/api/v1/dishes/{{dishId}}","host":["{{baseUrl}}"],"path":["api","v1","dishes","{{dishId}}"]}}},
+        {"name": "DELETE /dishes/:id (merchant)", "request": {"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{merchantToken}}"}], "url":{"raw":"{{baseUrl}}/api/v1/dishes/{{dishId}}","host":["{{baseUrl}}"],"path":["api","v1","dishes","{{dishId}}"]}}}
+      ]
+    },
+    {
+      "name": "Pricing",
+      "item": [
+        {"name": "GET /pricing/delivery?method=campus", "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/v1/pricing/delivery?method=campus", "host": ["{{baseUrl}}"], "path": ["api","v1","pricing","delivery"], "query": [{"key":"method","value":"campus"}]}}},
+        {"name": "GET /pricing/delivery?method=offcampus&km=5", "request": {"method": "GET", "url": {"raw": "{{baseUrl}}/api/v1/pricing/delivery?method=offcampus&km=5", "host": ["{{baseUrl}}"], "path": ["api","v1","pricing","delivery"], "query": [{"key":"method","value":"offcampus"},{"key":"km","value":"5"}]}}}
+      ]
+    },
+    {
+      "name": "Orders (Client)",
+      "item": [
+        {"name": "POST /orders", "request": {"method": "POST", "header": [{"key": "Authorization", "value": "Bearer {{clientToken}}"}, {"key":"Content-Type","value":"application/json"}], "body": {"mode": "raw", "raw": "{\n  \"customerName\": \"Client Demo\",\n  \"restaurantId\": {{restaurantId}},\n  \"items\": [{ \"dishId\": {{dishId}}, \"qty\": 2 }],\n  \"deliveryMethod\": \"campus\",\n  \"paymentMethod\": \"mobile\",\n  \"address\": \"UNIKIN - Auditoire 12\"\n}"}, "url": {"raw": "{{baseUrl}}/api/v1/orders", "host": ["{{baseUrl}}"], "path": ["api","v1","orders"]}}},
+        {"name": "GET /orders/me", "request": {"method": "GET", "header": [{"key":"Authorization","value":"Bearer {{clientToken}}"}], "url": {"raw":"{{baseUrl}}/api/v1/orders/me", "host":["{{baseUrl}}"], "path":["api","v1","orders","me"]}}},
+        {"name": "GET /orders/:id", "request": {"method": "GET", "header": [{"key":"Authorization","value":"Bearer {{clientToken}}"}], "url": {"raw":"{{baseUrl}}/api/v1/orders/{{orderId}}", "host":["{{baseUrl}}"], "path":["api","v1","orders","{{orderId}}"]}}}
+      ]
+    },
+    {
+      "name": "Orders (Merchant)",
+      "item": [
+        {"name": "PATCH /orders/:id/status (ready)", "request": {"method":"PATCH","header":[{"key":"Authorization","value":"Bearer {{merchantToken}}"},{"key":"Content-Type","value":"application/json"}], "body":{"mode":"raw","raw":"{\\n  \\\"status\\\": \\\"ready\\\"\\n}"}, "url":{"raw":"{{baseUrl}}/api/v1/orders/{{orderId}}/status","host":["{{baseUrl}}"],"path":["api","v1","orders","{{orderId}}","status"]}}},
+        {"name": "POST /orders/:id/assign-mission", "request": {"method":"POST","header":[{"key":"Authorization","value":"Bearer {{merchantToken}}"}], "url":{"raw":"{{baseUrl}}/api/v1/orders/{{orderId}}/assign-mission","host":["{{baseUrl}}"],"path":["api","v1","orders","{{orderId}}","assign-mission"]}}}
+      ]
+    },
+    {
+      "name": "Missions (Courier)",
+      "item": [
+        {"name": "GET /missions?status=available", "request": {"method": "GET", "header": [{"key":"Authorization","value":"Bearer {{courierToken}}"}], "url": {"raw":"{{baseUrl}}/api/v1/missions?status=available","host":["{{baseUrl}}"],"path":["api","v1","missions"],"query":[{"key":"status","value":"available"}]}}},
+        {"name": "POST /missions/:id/accept", "request": {"method": "POST", "header": [{"key":"Authorization","value":"Bearer {{courierToken}}"}], "url": {"raw": "{{baseUrl}}/api/v1/missions/{{missionId}}/accept", "host": ["{{baseUrl}}"], "path": ["api","v1","missions","{{missionId}}","accept"]}}},
+        {"name": "PATCH /missions/:id/status (picked)", "request": {"method":"PATCH","header":[{"key":"Authorization","value":"Bearer {{courierToken}}"},{"key":"Content-Type","value":"application/json"}], "body":{"mode":"raw","raw":"{\\n  \\\"status\\\": \\\"picked\\\"\\n}"}, "url":{"raw":"{{baseUrl}}/api/v1/missions/{{missionId}}/status","host":["{{baseUrl}}"],"path":["api","v1","missions","{{missionId}}","status"]}}},
+        {"name": "PATCH /missions/:id/status (enroute)", "request": {"method":"PATCH","header":[{"key":"Authorization","value":"Bearer {{courierToken}}"},{"key":"Content-Type","value":"application/json"}], "body":{"mode":"raw","raw":"{\\n  \\\"status\\\": \\\"enroute\\\"\\n}"}, "url":{"raw":"{{baseUrl}}/api/v1/missions/{{missionId}}/status","host":["{{baseUrl}}"],"path":["api","v1","missions","{{missionId}}","status"]}}},
+        {"name": "PATCH /missions/:id/status (delivered)", "request": {"method":"PATCH","header":[{"key":"Authorization","value":"Bearer {{courierToken}}"},{"key":"Content-Type","value":"application/json"}], "body":{"mode":"raw","raw":"{\\n  \\\"status\\\": \\\"delivered\\\"\\n}"}, "url":{"raw":"{{baseUrl}}/api/v1/missions/{{missionId}}/status","host":["{{baseUrl}}"],"path":["api","v1","missions","{{missionId}}","status"]}}}
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {"name": "POST /payments/intent", "request": {"method":"POST","header":[{"key":"Authorization","value":"Bearer {{clientToken}}"},{"key":"Content-Type","value":"application/json"}], "body":{"mode":"raw","raw":"{\\n  \\\"orderId\\\": {{orderId}},\\n  \\\"method\\\": \\\"mobile\\\"\\n}"}, "url":{"raw":"{{baseUrl}}/api/v1/payments/intent","host":["{{baseUrl}}"],"path":["api","v1","payments","intent"]}}},
+        {"name": "POST /payments/webhook", "request": {"method":"POST","header":[{"key":"Content-Type","value":"application/json"}], "body":{"mode":"raw","raw":"{\\n  \\\"orderCode\\\": \\\"MF-2025-1234\\\",\\n  \\\"status\\\": \\\"succeeded\\\"\\n}"}, "url":{"raw":"{{baseUrl}}/api/v1/payments/webhook","host":["{{baseUrl}}"],"path":["api","v1","payments","webhook"]}}}
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {"name": "GET /transactions (merchant)", "request": {"method": "GET", "header": [{"key":"Authorization","value":"Bearer {{merchantToken}}"}], "url": {"raw":"{{baseUrl}}/api/v1/transactions?beneficiary=merchant","host":["{{baseUrl}}"],"path":["api","v1","transactions"],"query":[{"key":"beneficiary","value":"merchant"}]}}},
+        {"name": "GET /transactions (courier)", "request": {"method": "GET", "header": [{"key":"Authorization","value":"Bearer {{courierToken}}"}], "url": {"raw":"{{baseUrl}}/api/v1/transactions?beneficiary=courier","host":["{{baseUrl}}"],"path":["api","v1","transactions"],"query":[{"key":"beneficiary","value":"courier"}]}}},
+        {"name": "PATCH /transactions/:id/mark-paid (admin)", "request": {"method":"PATCH","header":[{"key":"Authorization","value":"Bearer {{adminToken}}"}], "url":{"raw":"{{baseUrl}}/api/v1/transactions/{{transactionId}}/mark-paid","host":["{{baseUrl}}"],"path":["api","v1","transactions","{{transactionId}}","mark-paid"]}}}
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {"name": "GET /admin/users?status=pending", "request": {"method": "GET", "header": [{"key":"Authorization","value":"Bearer {{adminToken}}"}], "url": {"raw":"{{baseUrl}}/api/v1/admin/users?status=pending","host":["{{baseUrl}}"],"path":["api","v1","admin","users"],"query":[{"key":"status","value":"pending"}]}}},
+        {"name": "PATCH /admin/users/:id/status", "request": {"method":"PATCH","header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}], "body":{"mode":"raw","raw":"{\\n  \\\"status\\\": \\\"active\\\"\\n}"}, "url":{"raw":"{{baseUrl}}/api/v1/admin/users/{{userId}}/status","host":["{{baseUrl}}"],"path":["api","v1","admin","users","{{userId}}","status"]}}},
+        {"name": "DELETE /admin/users/:id", "request": {"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{adminToken}}"}], "url":{"raw":"{{baseUrl}}/api/v1/admin/users/{{userId}}","host":["{{baseUrl}}"],"path":["api","v1","admin","users","{{userId}}"]}}},
+        {"name": "GET /admin/stats", "request": {"method": "GET", "header": [{"key":"Authorization","value":"Bearer {{adminToken}}"}], "url": {"raw":"{{baseUrl}}/api/v1/admin/stats","host":["{{baseUrl}}"],"path":["api","v1","admin","stats"]}}},
+        {"name": "GET /admin/transactions", "request": {"method": "GET", "header": [{"key":"Authorization","value":"Bearer {{adminToken}}"}], "url": {"raw":"{{baseUrl}}/api/v1/admin/transactions","host":["{{baseUrl}}"],"path":["api","v1","admin","transactions"]}}}
+      ]
+    }
+  ],
+  "variable": [
+    {"key": "restaurantId", "value": "1"},
+    {"key": "dishId", "value": "1"},
+    {"key": "orderId", "value": "1"},
+    {"key": "missionId", "value": "1"},
+    {"key": "transactionId", "value": "1"},
+    {"key": "userId", "value": "1"}
+  ]
+}
