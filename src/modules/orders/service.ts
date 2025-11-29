@@ -92,6 +92,37 @@ export async function createOrder(input: CreateOrderInput) {
         throw e;
       }
     }
+    // Create financial transactions (Pending until payout/completion)
+    // 1. Merchant Transaction
+    const COMMISSION_RATE = 0.10; // 10% commission
+    const commission = Math.round(subtotal * COMMISSION_RATE);
+    const merchantNet = subtotal - commission;
+    
+    await tx.transaction.create({
+      data: {
+        orderId: order.id,
+        beneficiary: 'merchant',
+        amount: subtotal,
+        commission: commission,
+        netAmount: merchantNet,
+        status: 'pending'
+      }
+    });
+
+    // 2. Courier Transaction (if delivery fee > 0)
+    if (deliveryFee > 0) {
+      await tx.transaction.create({
+        data: {
+          orderId: order.id,
+          beneficiary: 'courier',
+          amount: deliveryFee,
+          commission: 0,
+          netAmount: deliveryFee, // Courier gets full delivery fee
+          status: 'pending'
+        }
+      });
+    }
+
     // Notifications (best-effort)
     try {
       await notify(customerUserId!, {

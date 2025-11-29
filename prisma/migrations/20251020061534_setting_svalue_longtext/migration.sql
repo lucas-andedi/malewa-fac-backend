@@ -1,2 +1,3 @@
 -- AlterTable
-ALTER TABLE `setting` MODIFY `svalue` LONGTEXT NOT NULL;
+ALTER TABLE `Setting` MODIFY `svalue` LONGTEXT NOT NULL;
+

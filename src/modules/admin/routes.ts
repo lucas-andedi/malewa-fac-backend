@@ -44,19 +44,38 @@ adminRouter.delete('/users/:id', rbac(['admin']), asyncHandler(async (req: Reque
 
 // GET /api/v1/admin/stats
 adminRouter.get('/stats', rbac(['admin']), asyncHandler(async (_req: Request, res: Response) => {
-  const [totalOrders, revenueAgg, commissionAgg, newUsers] = await Promise.all([
+  const [totalOrders, revenueAgg, commissionAgg, newUsers, recentTx] = await Promise.all([
     prisma.order.count(),
     prisma.order.aggregate({ _sum: { total: true } }),
     prisma.transaction.aggregate({ _sum: { commission: true } }),
-    prisma.user.count({ where: { status: 'pending' } })
+    prisma.user.count({ where: { status: 'pending' } }),
+    prisma.transaction.findMany({ take: 5, orderBy: { createdAt: 'desc' } })
   ]);
 
   res.json({
     totalOrders,
     revenueTotal: revenueAgg._sum.total || 0,
     commission: commissionAgg._sum.commission || 0,
-    newUsers
+    newUsers,
+    recentTransactions: recentTx
   });
+}));
+
+// GET /api/v1/admin/orders
+adminRouter.get('/orders', rbac(['admin']), asyncHandler(async (req: Request, res: Response) => {
+  const status = (req.query as any).status;
+  const where: any = {};
+  if (status && status !== 'all') where.status = status;
+  
+  const list = await prisma.order.findMany({ 
+    where, 
+    orderBy: { createdAt: 'desc' },
+    include: { 
+      customer: { select: { name: true, email: true, phone: true } },
+      restaurant: { select: { name: true } }
+    }
+  });
+  res.json(list);
 }));
 
 // GET /api/v1/admin/transactions
@@ -66,4 +85,40 @@ adminRouter.get('/transactions', rbac(['admin']), asyncHandler(async (req: Reque
   if (status) where.status = status;
   const list = await prisma.transaction.findMany({ where, orderBy: { id: 'desc' } });
   res.json(list);
+}));
+
+// GET /api/v1/admin/restaurants
+adminRouter.get('/restaurants', rbac(['admin']), asyncHandler(async (req: Request, res: Response) => {
+  const status = (req.query as any).status;
+  const where: any = {};
+  if (status && status !== 'all') where.status = status;
+  const list = await prisma.restaurant.findMany({ where, orderBy: { createdAt: 'desc' } });
+  res.json(list);
+}));
+
+// PATCH /api/v1/admin/restaurants/:id/status
+adminRouter.patch('/restaurants/:id/status', rbac(['admin']), asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const { status } = req.body;
+  
+  if (isNaN(id) || !['pending','active','rejected','suspended'].includes(status)) {
+    return res.status(400).json({ error: { message: 'Invalid payload' } });
+  }
+
+  const resto = await prisma.restaurant.findUnique({ where: { id } });
+  if (!resto) return res.status(404).json({ error: { message: 'Restaurant not found' } });
+  
+  const updated = await prisma.restaurant.update({ where: { id }, data: { status } });
+  
+  // Notify owner
+  if (updated.ownerUserId) {
+     try {
+        await notify(updated.ownerUserId, {
+           type: 'restaurant.status',
+           title: `Statut restaurant: ${status}`,
+           message: status === 'active' ? 'Votre restaurant est validé et visible.' : `Votre restaurant est ${status}.`
+        });
+     } catch {}
+  }
+  res.json(updated);
 }));

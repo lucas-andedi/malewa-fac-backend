@@ -68,7 +68,7 @@ model Institution {
   code  String  @unique
   name  String
   users User[]
-  restaurants Restaurant[]
+  restaurantLinks RestaurantInstitution[]
 }
 
 model User {
@@ -76,6 +76,7 @@ model User {
   name           String
   email          String?    @unique
   phone          String?    @unique
+  paymentPhoneNumber String? // For merchants/couriers to receive payments
   passwordHash   String?
   role           UserRole
   status         UserStatus @default(active)
@@ -85,16 +86,26 @@ model User {
   orders         Order[]      @relation("OrderCustomer")
   missions       DeliveryMission[] @relation("MissionCourier")
   notifications  Notification[]
+  supportTickets SupportTicket[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+}
+
+enum RestaurantStatus {
+  pending
+  active
+  rejected
+  suspended
 }
 
 model Restaurant {
   id                 Int       @id @default(autoincrement())
   code               String?   @unique
   name               String
-  institutionId      Int
-  institution        Institution @relation(fields: [institutionId], references: [id])
+  status             RestaurantStatus @default(pending)
+  address            String?
+  description        String?   @db.Text
+  institutionLinks   RestaurantInstitution[]
   ownerUserId        Int?
   owner              User?      @relation("RestaurantOwner", fields: [ownerUserId], references: [id])
   rating             Decimal?   @db.Decimal(3, 2)
@@ -104,6 +115,15 @@ model Restaurant {
   dishes             Dish[]
   orders             Order[]
   missions           DeliveryMission[]
+}
+
+model RestaurantInstitution {
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  institutionId Int
+  institution   Institution @relation(fields: [institutionId], references: [id])
+
+  @@id([restaurantId, institutionId])
 }
 
 model Dish {
@@ -219,4 +239,28 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+}
+
+enum TicketStatus {
+  open
+  resolved
+  closed
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+}
+
+model SupportTicket {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  subject     String
+  message     String   @db.Text
+  status      TicketStatus @default(open)
+  priority    TicketPriority @default(medium)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

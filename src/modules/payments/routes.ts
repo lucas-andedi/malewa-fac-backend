@@ -3,7 +3,8 @@ import { asyncHandler } from '../../utils/http';
 import { prisma } from '../../db/prisma';
 import { stripe } from '../../config/stripe';
 import { env } from '../../config/env';
-import { initiateLabyrinthePayment, labyrintheWebhookHandler, mobileStatusHandler } from './labyrinthe';
+import { mokoService } from '../../utils/moko';
+import { createOrder } from '../orders/service';
 
 export const paymentsRouter = Router();
 
@@ -70,9 +71,9 @@ paymentsRouter.post('/cart-intent', asyncHandler(async (req: Request, res: Respo
 
 // POST /api/v1/payments/intent (auth)
 paymentsRouter.post('/intent', asyncHandler(async (req: Request, res: Response) => {
-  const { orderId, method } = req.body as { orderId: number; method: 'mobile'|'card'|'cod' };
+  const { orderId, method, phoneNumber, provider } = req.body as { orderId: number; method: 'mobile'|'card'|'cod'; phoneNumber?: string; provider?: string };
   if (!orderId || !method) return res.status(400).json({ error: { message: 'orderId and method required' } });
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { customer: true } });
   if (!order) return res.status(404).json({ error: { message: 'Order not found' } });
 
   // Stripe flow for card payments
@@ -111,33 +112,196 @@ paymentsRouter.post('/intent', asyncHandler(async (req: Request, res: Response) 
     });
   }
 
-  // Default/mock flow for non-card methods
+  // Moko (Mobile Money) flow
+  if (method === 'mobile') {
+    if (!phoneNumber) return res.status(400).json({ error: { message: 'Phone number required for mobile payment' } });
+    
+    const payment = await prisma.payment.create({
+      data: {
+        orderId: order.id,
+        method,
+        amount: order.total,
+        status: 'pending',
+        provider: 'moko',
+        // providerRef set later
+      }
+    });
+
+    const result = await mokoService.initiateCollection({
+        amount: order.total,
+        customer_number: phoneNumber,
+        reference: `ORD-${order.code}`,
+        method: provider, // let mokoService detect if not provided
+        firstname: order.customer.name.split(' ')[0],
+        lastname: order.customer.name.split(' ')[1] || '',
+        email: order.customer.email || undefined
+    });
+
+    return res.status(201).json({ 
+        payment, 
+        message: 'Payment initiated. Check your phone.',
+        mokoResponse: result 
+    });
+  }
+
+  // Default/mock flow for COD
   const payment = await prisma.payment.create({ data: { orderId: order.id, method, amount: order.total, status: 'pending' } });
-  const paymentUrl = `https://pay.malewa-fac.cd/${order.code}`;
-  res.status(201).json({ payment, paymentUrl });
+  res.status(201).json({ payment });
 }));
 
-// POST /api/v1/payments/webhook (provider)
+// POST /api/v1/payments/webhook (provider - Stripe/Moko)
 paymentsRouter.post('/webhook', asyncHandler(async (req: Request, res: Response) => {
-  // Mock: body should contain { orderCode, status }
-  const { orderCode, status } = req.body as { orderCode?: string; status?: 'succeeded'|'failed'|'refunded' };
-  if (!orderCode) return res.status(400).json({ error: { message: 'orderCode required' } });
-  const order = await prisma.order.findUnique({ where: { code: orderCode } });
-  if (!order) return res.status(404).json({ error: { message: 'Order not found' } });
-  const pay = await prisma.payment.findFirst({ where: { orderId: order.id }, orderBy: { id: 'desc' } });
-  if (!pay) return res.status(404).json({ error: { message: 'Payment not found' } });
-
-  const updated = await prisma.payment.update({ where: { id: pay.id }, data: { status: (status ?? 'succeeded') as any, paidAt: status === 'succeeded' ? new Date() : undefined } });
-  res.json({ ok: true, payment: updated });
+    // Handle Stripe Webhook elsewhere (it's in app.ts)
+    // This handler is for generic updates or local tests
+    res.json({ ok: true });
 }));
 
-// Labyrinthe Mobile Money
-// POST /api/v1/payments/mobile/initiate
-paymentsRouter.post('/mobile/initiate', asyncHandler(initiateLabyrinthePayment as any));
+// POST /api/v1/payments/mobile/initiate (Legacy/Alias for Moko)
+paymentsRouter.post('/mobile/initiate', asyncHandler(async (req: Request, res: Response) => {
+    // Forward to /intent logic manually
+    // Legacy payload might differ, but assuming similar fields
+    // If legacy used `orderCode`, we need to find ID.
+    const { orderCode, orderId, phoneNumber, provider, phone, order: orderBody } = req.body;
+    
+    let targetPhone = phoneNumber || phone;
+    
+    let oid = orderId;
+    if (!oid && orderBody && orderBody.id) {
+        oid = orderBody.id;
+    }
 
-// POST /api/v1/payments/labyrinthe/webhook (public)
-paymentsRouter.post('/labyrinthe/webhook', labyrintheWebhookHandler);
+    if (!oid && orderCode) {
+        const o = await prisma.order.findUnique({ where: { code: orderCode } });
+        if (o) oid = o.id;
+    } else if (!oid && orderBody && orderBody.code) {
+        const o = await prisma.order.findUnique({ where: { code: orderBody.code } });
+        if (o) oid = o.id;
+    }
 
-// GET /api/v1/payments/mobile/status?orderNumber=...
-paymentsRouter.get('/mobile/status', asyncHandler(mobileStatusHandler as any));
+    if ((!oid && !orderBody) || !targetPhone) {
+        return res.status(400).json({ error: { message: 'orderId (or orderCode or order object) and phoneNumber (or phone) required' } });
+    }
+
+    // Reuse Moko flow
+    let order;
+    
+    if (oid) {
+        order = await prisma.order.findUnique({ where: { id: Number(oid) }, include: { customer: true } });
+    } else if (orderBody) {
+        // Create order on the fly
+        // Inject user id if available
+        const user = (req as any).user;
+        const customerUserId = user?.id || orderBody.customerUserId; // fallback to body or logic inside createOrder
+        
+        try {
+            order = await createOrder({
+                ...orderBody,
+                customerUserId,
+                paymentMethod: 'mobile'
+            });
+            // Fetch full order with customer for Moko
+            order = await prisma.order.findUnique({ where: { id: order.id }, include: { customer: true } });
+        } catch (e: any) {
+             return res.status(400).json({ error: { message: e.message || 'Order creation failed' } });
+        }
+    }
+
+    if (!order) return res.status(404).json({ error: { message: 'Order not found or creation failed' } });
+
+    const payment = await prisma.payment.create({
+
+
+      data: {
+        orderId: order.id,
+        method: 'mobile',
+        amount: order.total,
+        status: 'pending',
+        provider: 'moko',
+      }
+    });
+
+    const result = await mokoService.initiateCollection({
+        amount: order.total,
+        customer_number: targetPhone,
+        reference: `ORD-${order.code}`,
+        method: provider,
+        firstname: order.customer.name.split(' ')[0],
+        lastname: order.customer.name.split(' ')[1] || '',
+        email: order.customer.email || undefined
+    });
+
+    return res.status(201).json({ 
+        payment, 
+        message: 'Payment initiated. Check your phone.',
+        mokoResponse: result 
+    });
+}));
+
+// GET /api/v1/payments/mobile/status (Legacy/Compat)
+paymentsRouter.get('/mobile/status', asyncHandler(async (req: Request, res: Response) => {
+    const { orderCode, orderId } = req.query as { orderCode?: string; orderId?: string };
+    
+    let oid = orderId ? Number(orderId) : undefined;
+    if (!oid && orderCode) {
+        const o = await prisma.order.findUnique({ where: { code: orderCode } });
+        if (o) oid = o.id;
+    }
+
+    if (!oid) return res.status(400).json({ error: { message: 'orderCode or orderId required' } });
+
+    const payment = await prisma.payment.findFirst({ 
+        where: { orderId: oid }, 
+        orderBy: { id: 'desc' } 
+    });
+
+    res.json({ 
+        status: payment?.status || 'pending',
+        paidAt: payment?.paidAt,
+        payment
+    });
+}));
+
+// POST /api/v1/payments/moko/webhook
+paymentsRouter.post('/moko/webhook', asyncHandler(async (req: Request, res: Response) => {
+    const data = req.body;
+    // Expected format: { reference, status, ... }
+    // Based on Moko docs, check reference to find order/payment
+    
+    // Docs say response format is JSON
+    // Let's assume `reference` matches `ORD-{code}`
+    // And status is available
+    
+    const reference = data.reference;
+    if (!reference) return res.status(400).json({ error: 'No reference' });
+
+    // Extract order code
+    const orderCode = reference.replace('ORD-', '');
+    const order = await prisma.order.findUnique({ where: { code: orderCode } });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    const payment = await prisma.payment.findFirst({ where: { orderId: order.id }, orderBy: { id: 'desc' } });
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+
+    // Map Moko status to ours
+    // Docs: status might be 'successful', 'failed' ? 
+    // Using loose match
+    let newStatus: 'succeeded'|'failed' = 'failed';
+    if (data.status === 'successful' || data.status === 'success' || data.transaction_status === 'successful') {
+        newStatus = 'succeeded';
+    }
+
+    if (payment.status !== 'succeeded') {
+        await prisma.payment.update({
+            where: { id: payment.id },
+            data: { 
+                status: newStatus, 
+                paidAt: newStatus === 'succeeded' ? new Date() : undefined,
+                providerRef: data.transaction_id || data.id // Save Moko ID if available
+            }
+        });
+    }
+
+    res.json({ status: 'received' });
+}));
+
 

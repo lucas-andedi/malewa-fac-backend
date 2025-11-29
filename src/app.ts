@@ -18,8 +18,10 @@ import { missionsRouter } from './modules/missions/routes';
 import { paymentsRouter } from './modules/payments/routes';
 import { transactionsRouter } from './modules/transactions/routes';
 import { adminRouter } from './modules/admin/routes';
+import { supportRouter } from './modules/support/routes';
 import { stripeWebhookHandler } from './modules/payments/stripeWebhook';
 import { notificationsRouter } from './modules/notifications/routes';
+import { uploadRouter } from './modules/upload/routes';
 
 export const app = express();
 
@@ -46,6 +48,8 @@ app.use('/api/v1/payments', paymentsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/transactions', transactionsRouter);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/support', supportRouter);
+app.use('/api/v1/upload', uploadRouter);
 
 // Error handler
 app.use(errorHandler);

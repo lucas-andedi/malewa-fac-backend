@@ -24,5 +24,15 @@ export const env = {
   labyrintheToken: process.env.LABYRINTHE_TOKEN || '',
   labyrintheCountry: process.env.LABYRINTHE_COUNTRY || 'CD',
   labyrintheCurrency: process.env.LABYRINTHE_CURRENCY || 'CDF',
+  // DigitalOcean Spaces
+  doSpacesEndpoint: process.env.DO_SPACES_ENDPOINT || '',
+  doSpacesKey: process.env.DO_SPACES_KEY || '',
+  doSpacesSecret: process.env.DO_SPACES_SECRET || '',
+  doSpacesBucket: process.env.DO_SPACES_BUCKET || '',
+  doSpacesRegion: process.env.DO_SPACES_REGION || 'sfo3',
+  // Moko Afrika
+  mokoBaseUrl: process.env.MOKO_BASE_URL || 'https://paydrc.gofreshbakery.net/api/v5',
+  mokoMerchantId: process.env.MOKO_MERCHANT_ID || '',
+  mokoMerchantSecret: process.env.MOKO_MERCHANT_SECRET || '',
 };
 
