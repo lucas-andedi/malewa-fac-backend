@@ -103,13 +103,14 @@ model Restaurant {
   code               String?   @unique
   name               String
   status             RestaurantStatus @default(pending)
+  rejectionReason    String?
   address            String?
   description        String?   @db.Text
   institutionLinks   RestaurantInstitution[]
   ownerUserId        Int?
   owner              User?      @relation("RestaurantOwner", fields: [ownerUserId], references: [id])
   rating             Decimal?   @db.Decimal(3, 2)
-  deliveryFeeCampus  Int        @default(2000)
+  deliveryFeeCampus  Int        @default(1500)
   photoUrl           String?
   createdAt          DateTime   @default(now())
   dishes             Dish[]

@@ -44,7 +44,7 @@ restaurantsRouter.post('/', rbac(['merchant','admin']), uploadMiddleware.single(
       description,
       status: 'pending',
       ownerUserId,
-      deliveryFeeCampus: deliveryFeeCampus ? Number(deliveryFeeCampus) : 2000,
+      deliveryFeeCampus: deliveryFeeCampus ? Number(deliveryFeeCampus) : 1500,
       code: name.substring(0,3).toUpperCase() + Math.floor(Math.random()*1000),
       photoUrl,
       institutionLinks: {
@@ -61,6 +61,67 @@ restaurantsRouter.post('/', rbac(['merchant','admin']), uploadMiddleware.single(
   };
 
   res.status(201).json(response);
+}));
+
+// PATCH /api/v1/restaurants/:id (merchant/admin)
+restaurantsRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
+
+  const user = (req as any).user as { id: number; role: string };
+  const { name, deliveryFeeCampus, address, description } = req.body;
+  let institutionIds = req.body.institutionIds;
+
+  const resto = await prisma.restaurant.findUnique({ where: { id } });
+  if (!resto) return res.status(404).json({ error: { message: 'Restaurant not found' } });
+
+  // Check permissions
+  if (user.role === 'merchant' && resto.ownerUserId !== user.id) {
+    return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
+
+  // Handle institutionIds
+  if (typeof institutionIds === 'string') {
+    try { institutionIds = JSON.parse(institutionIds); } catch { institutionIds = institutionIds.split(',').map(Number); }
+  }
+
+  // Deduplicate institutionIds
+  let uniqueInstitutionIds: number[] | undefined;
+  if (Array.isArray(institutionIds)) {
+    uniqueInstitutionIds = Array.from(new Set(institutionIds.map((id: any) => Number(id))));
+  }
+
+  let photoUrl = req.body.photoUrl;
+  if (req.file) {
+    photoUrl = await uploadToSpaces(req.file, 'restaurants');
+  }
+
+  // If updating, reset status to pending if it was rejected, to allow re-review
+  const newStatus = resto.status === 'rejected' ? 'pending' : undefined;
+
+  const updated = await prisma.restaurant.update({
+    where: { id },
+    data: {
+      name,
+      address,
+      description,
+      deliveryFeeCampus: deliveryFeeCampus ? Number(deliveryFeeCampus) : undefined,
+      photoUrl,
+      status: newStatus, // Reset status if rejected
+      institutionLinks: uniqueInstitutionIds ? {
+        deleteMany: {},
+        create: uniqueInstitutionIds.map(id => ({ institutionId: id }))
+      } : undefined
+    },
+    include: { institutionLinks: { include: { institution: true } } }
+  });
+
+  const response = {
+    ...updated,
+    institutions: updated.institutionLinks.map(l => l.institution),
+    institutionLinks: undefined
+  };
+  res.json(response);
 }));
 
 // GET /api/v1/restaurants/mine (merchant)

@@ -99,7 +99,7 @@ adminRouter.get('/restaurants', rbac(['admin']), asyncHandler(async (req: Reques
 // PATCH /api/v1/admin/restaurants/:id/status
 adminRouter.patch('/restaurants/:id/status', rbac(['admin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const { status } = req.body;
+  const { status, reason } = req.body;
   
   if (isNaN(id) || !['pending','active','rejected','suspended'].includes(status)) {
     return res.status(400).json({ error: { message: 'Invalid payload' } });
@@ -108,15 +108,25 @@ adminRouter.patch('/restaurants/:id/status', rbac(['admin']), asyncHandler(async
   const resto = await prisma.restaurant.findUnique({ where: { id } });
   if (!resto) return res.status(404).json({ error: { message: 'Restaurant not found' } });
   
-  const updated = await prisma.restaurant.update({ where: { id }, data: { status } });
+  const updated = await prisma.restaurant.update({ 
+    where: { id }, 
+    data: { 
+      status,
+      rejectionReason: status === 'rejected' ? reason : null // Clear reason if not rejected
+    } 
+  });
   
   // Notify owner
   if (updated.ownerUserId) {
      try {
+        let msg = `Votre restaurant est ${status}.`;
+        if (status === 'active') msg = 'Votre restaurant est validé et visible.';
+        if (status === 'rejected' && reason) msg += ` Raison: ${reason}`;
+        
         await notify(updated.ownerUserId, {
            type: 'restaurant.status',
            title: `Statut restaurant: ${status}`,
-           message: status === 'active' ? 'Votre restaurant est validé et visible.' : `Votre restaurant est ${status}.`
+           message: msg
         });
      } catch {}
   }
