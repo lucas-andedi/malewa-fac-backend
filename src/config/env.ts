@@ -34,5 +34,10 @@ export const env = {
   mokoBaseUrl: process.env.MOKO_BASE_URL || 'https://paydrc.gofreshbakery.net/api/v5',
   mokoMerchantId: process.env.MOKO_MERCHANT_ID || '',
   mokoMerchantSecret: process.env.MOKO_MERCHANT_SECRET || '',
+  // SMS Configuration
+  smsUser: process.env.SMS_USER || 'johnnyetsha@gmail.com',
+  smsPassword: process.env.SMS_PASSWORD || 'Johnny1#',
+  smsSender: process.env.SMS_SENDER || 'NkoloArt',
+  smsApiUrl: process.env.SMS_API_URL || 'https://sms.eliajimmy.net/apisms.php',
 };
 

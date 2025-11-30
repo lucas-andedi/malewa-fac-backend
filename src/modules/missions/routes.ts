@@ -5,6 +5,7 @@ import { asyncHandler } from '../../utils/http';
 import { rbac } from '../../middlewares/rbac';
 import { ensureMerchantAndCourierTransactions } from '../../utils/finance';
 import { notify } from '../../utils/notify';
+import { smsService } from '../../utils/sms';
 
 export const missionsRouter = Router();
 
@@ -20,8 +21,29 @@ missionsRouter.get('/', rbac(['courier','admin']), asyncHandler(async (req: Requ
     else if (status === 'delivered') where = { courierUserId: user.id, status: 'delivered' };
   }
 
-  const list = await prisma.deliveryMission.findMany({ where, orderBy: { id: 'desc' } });
-  res.json(list);
+  const list = await prisma.deliveryMission.findMany({ 
+    where, 
+    orderBy: { id: 'desc' },
+    include: {
+      restaurant: { select: { name: true, address: true } },
+      order: { select: { code: true, customerName: true, items: true, total: true } }
+    }
+  });
+  
+  // Map to DTO
+  const response = list.map(m => ({
+    ...m,
+    restaurantName: m.restaurant.name,
+    restaurantAddress: m.restaurant.address || m.restaurantLocation,
+    orderCode: m.order.code,
+    customerName: m.order.customerName,
+    orderTotal: m.order.total,
+    items: m.order.items,
+    restaurant: undefined,
+    order: undefined
+  }));
+
+  res.json(response);
 }));
 
 // POST /api/v1/missions/:id/accept (courier)
@@ -31,8 +53,29 @@ missionsRouter.post('/:id/accept', rbac(['courier']), asyncHandler(async (req: R
   const mission = await prisma.deliveryMission.findUnique({ where: { id } });
   if (!mission) return res.status(404).json({ error: { message: 'Mission not found' } });
   if (mission.status !== 'available') return res.status(400).json({ error: { message: 'Mission not available' } });
-  const updated = await prisma.deliveryMission.update({ where: { id }, data: { status: 'accepted', courierUserId: user.id } });
-  res.json(updated);
+  
+  const updated = await prisma.deliveryMission.update({ 
+    where: { id }, 
+    data: { status: 'accepted', courierUserId: user.id },
+    include: {
+      restaurant: { select: { name: true, address: true } },
+      order: { select: { code: true, customerName: true, items: true, total: true } }
+    }
+  });
+
+  const response = {
+    ...updated,
+    restaurantName: updated.restaurant.name,
+    restaurantAddress: updated.restaurant.address || updated.restaurantLocation,
+    orderCode: updated.order.code,
+    customerName: updated.order.customerName,
+    orderTotal: updated.order.total,
+    items: updated.order.items,
+    restaurant: undefined,
+    order: undefined
+  };
+  res.json(response);
+  
   // Notify customer and restaurant owner
   try {
     const order = await prisma.order.findUnique({ where: { id: mission.orderId } });
@@ -94,6 +137,14 @@ missionsRouter.patch('/:id/status', rbac(['courier']), asyncHandler(async (req: 
         title: labels[status] || `Mise à jour: ${status}`,
         data: { orderId: order.id, missionId: updated.id }
       });
+      
+      // SMS to Customer on Delivered
+      if (status === 'delivered') {
+         const customer = await prisma.user.findUnique({ where: { id: order.customerUserId } });
+         if (customer?.phone) {
+             await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${order.code} a été livrée par le coursier. Merci!`);
+         }
+      }
     }
     if (status === 'delivered' && resto?.ownerUserId) {
       await notify(resto.ownerUserId, {

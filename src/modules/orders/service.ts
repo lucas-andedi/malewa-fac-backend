@@ -1,148 +1,124 @@
+import { OrderStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma';
 import { CreateOrderInput } from './dto';
-import { generateOrderCode } from '../../utils/id';
-import { stripe } from '../../config/stripe';
+import { AppError } from '../../utils/http';
+import { smsService } from '../../utils/sms';
 import { notify } from '../../utils/notify';
-
-async function getSetting(key: string, fallback: number): Promise<number> {
-  const s = await prisma.setting.findUnique({ where: { skey: key } });
-  return s ? Number(s.svalue) : fallback;
-}
+import { logger } from '../../config/logger';
 
 export async function createOrder(input: CreateOrderInput) {
-  const { restaurantId, items, deliveryMethod, paymentMethod, address, estimatedDistanceKm, customerName, paymentIntentId } = input;
+  const { customerUserId, items, restaurantId, deliveryMethod, paymentMethod, notes, address, estimatedDistanceKm } = input;
 
-  // fetch dishes and validate single-restaurant constraint
-  const dishIds = items.map((i: { dishId: number; qty: number }) => i.dishId);
-  const dishes = await prisma.dish.findMany({ where: { id: { in: dishIds }, restaurantId: restaurantId } });
-  if (dishes.length !== items.length) throw Object.assign(new Error('Invalid items'), { status: 400 });
-
-  const subtotal = items.reduce((s: number, i: { dishId: number; qty: number }) => {
-    const d = dishes.find((x) => x.id === i.dishId)!;
-    return s + d.price * i.qty;
-  }, 0);
-
-  const SERVICE_FEE = await getSetting('SERVICE_FEE', 1000);
-  const CAMPUS_DELIVERY_FEE = await getSetting('CAMPUS_DELIVERY_FEE', 2000);
-  const OFF_CAMPUS_RATE_PER_KM = await getSetting('OFF_CAMPUS_RATE_PER_KM', 500);
-  const OFF_CAMPUS_MIN_FEE = await getSetting('OFF_CAMPUS_MIN_FEE', 2000);
-
-  let deliveryFee = 0;
-  if (deliveryMethod === 'pickup') deliveryFee = 0;
-  else if (deliveryMethod === 'campus') deliveryFee = CAMPUS_DELIVERY_FEE;
-  else deliveryFee = Math.max(OFF_CAMPUS_MIN_FEE, Math.round((estimatedDistanceKm || 1) * OFF_CAMPUS_RATE_PER_KM));
-
-  const total = subtotal + SERVICE_FEE + deliveryFee;
-
-  const code = generateOrderCode();
-
-  // fallback customer user
-  let customerUserId = input.customerUserId;
+  // Ensure customer exists
   if (!customerUserId) {
-    const demo = await prisma.user.findFirst({ where: { email: 'client@demo.local' } });
-    if (!demo) throw Object.assign(new Error('No customer provided and demo user missing'), { status: 400 });
-    customerUserId = demo.id;
+    throw new AppError('User ID is required for order', 400);
+  }
+  const customer = await prisma.user.findUnique({ where: { id: customerUserId } });
+  if (!customer) throw new AppError('Customer not found', 404);
+
+  // Ensure restaurant exists
+  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } });
+  if (!restaurant) throw new AppError('Restaurant not found', 404);
+
+  // Calculate totals and validate items
+  let subtotal = 0;
+  const orderItemsData: any[] = [];
+
+  for (const item of items) {
+    const dish = await prisma.dish.findUnique({ where: { id: item.dishId } });
+    if (!dish) throw new AppError(`Dish ${item.dishId} not found`, 400);
+    if (dish.restaurantId !== restaurantId) throw new AppError(`Dish ${dish.name} does not belong to this restaurant`, 400);
+    
+    // Custom price validation: must be >= dish price
+    const finalPrice = (item.customPrice && item.customPrice > dish.price) ? item.customPrice : dish.price;
+    
+    subtotal += finalPrice * item.qty;
+    orderItemsData.push({
+      dishId: dish.id,
+      name: dish.name,
+      price: dish.price, // Base price
+      customPrice: finalPrice !== dish.price ? finalPrice : null, // Store custom price if different
+      qty: item.qty
+    });
   }
 
-  const created = await prisma.$transaction(async (tx) => {
-    const order = await tx.order.create({
+  const serviceFee = 0; // logic for service fee?
+  let deliveryFee = 0;
+  if (deliveryMethod === 'campus' || deliveryMethod === 'offcampus') {
+    deliveryFee = restaurant.deliveryFeeCampus || 1500;
+    // logic for distance based fee?
+  }
+
+  const total = subtotal + serviceFee + deliveryFee;
+
+  // Transaction
+  const order = await prisma.$transaction(async (tx) => {
+    // Create Order
+    const newOrder = await tx.order.create({
       data: {
-        code,
-        customerUserId: customerUserId!,
-        customerName,
+        code: `ORD-${Date.now().toString().slice(-6)}`, // Simple code gen
+        customerUserId,
+        customerName: input.customerName,
         restaurantId,
         subtotal,
-        serviceFee: SERVICE_FEE,
-        deliveryMethod,
+        serviceFee,
         deliveryFee,
-        total,
+        deliveryMethod,
         paymentMethod,
+        total,
         address,
-        estimatedDistanceKm: estimatedDistanceKm || null,
+        notes,
+        estimatedDistanceKm,
+        status: 'pending_confirmation' as any, // Initial status
         items: {
-          create: items.map((i: { dishId: number; qty: number }) => {
-            const d = dishes.find((x) => x.id === i.dishId)!;
-            return { dishId: d.id, name: d.name, price: d.price, qty: i.qty };
-          })
+            create: orderItemsData
+        },
+        transactions: {
+            create: {
+                beneficiary: 'merchant',
+                amount: subtotal,
+                netAmount: subtotal, // minus commission?
+                status: 'pending'
+            }
         }
       },
       include: { items: true }
     });
-    // If pay-first with Stripe, verify the payment intent status and attach a Payment record
-    if (paymentMethod === 'card' && paymentIntentId) {
-      try {
-        const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-        const st = pi.status;
-        if (!(st === 'succeeded' || st === 'requires_capture' || st === 'processing')) {
-          throw Object.assign(new Error('Payment not confirmed'), { status: 400 });
-        }
-        await tx.payment.create({
-          data: {
-            orderId: order.id,
-            method: 'card',
-            provider: 'stripe',
-            providerRef: paymentIntentId,
-            amount: total,
-            status: st === 'succeeded' ? 'succeeded' : 'pending',
-            paidAt: st === 'succeeded' ? new Date() : null,
-          }
-        });
-      } catch (e) {
-        // If verification fails, abort order creation
-        throw e;
-      }
-    }
-    // Create financial transactions (Pending until payout/completion)
-    // 1. Merchant Transaction
-    const COMMISSION_RATE = 0.10; // 10% commission
-    const commission = Math.round(subtotal * COMMISSION_RATE);
-    const merchantNet = subtotal - commission;
-    
-    await tx.transaction.create({
-      data: {
-        orderId: order.id,
-        beneficiary: 'merchant',
-        amount: subtotal,
-        commission: commission,
-        netAmount: merchantNet,
-        status: 'pending'
-      }
-    });
 
-    // 2. Courier Transaction (if delivery fee > 0)
-    if (deliveryFee > 0) {
-      await tx.transaction.create({
-        data: {
-          orderId: order.id,
-          beneficiary: 'courier',
-          amount: deliveryFee,
-          commission: 0,
-          netAmount: deliveryFee, // Courier gets full delivery fee
-          status: 'pending'
-        }
-      });
-    }
-
-    // Notifications (best-effort)
-    try {
-      await notify(customerUserId!, {
-        type: 'order.created',
-        title: `Commande ${code} reçue`,
-        message: `Votre commande a été reçue par le restaurant. Total: ${total} FC.`,
-        data: { orderCode: code, orderId: order.id }
-      }, tx);
-      const resto = await tx.restaurant.findUnique({ where: { id: restaurantId } });
-      if (resto?.ownerUserId) {
-        await notify(resto.ownerUserId, {
-          type: 'order.new_for_restaurant',
-          title: `Nouvelle commande ${code}`,
-          message: `${customerName} a passé une commande. Total: ${total} FC.`,
-          data: { orderId: order.id }
-        }, tx);
-      }
-    } catch {}
-    return order;
+    return newOrder;
   });
 
-  return created;
+  // Notifications
+  try {
+    // 1. Notify Dispatchers/Admins via SMS
+    // Find admins and dispatchers
+    const dispatchers = await prisma.user.findMany({
+        where: { 
+            role: { in: ['admin', 'superadmin', 'dispatcher'] as any },
+            status: 'active'
+        }
+    });
+
+    for (const d of dispatchers) {
+        if (d.phone) {
+            await smsService.sendSms(d.phone, `Malewa-Fac: Nouvelle commande ${order.code} à confirmer. Client: ${order.customerName}. Total: ${order.total} FC.`);
+        }
+    }
+
+    // 2. Notify Customer
+    if (customer.phone) {
+        // Maybe just push notification?
+        await notify(customer.id, {
+            type: 'order.created',
+            title: 'Commande reçue',
+            message: `Votre commande ${order.code} est en attente de confirmation par nos services.`,
+            data: { orderId: order.id }
+        });
+    }
+
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to send order notifications');
+  }
+
+  return order;
 }
