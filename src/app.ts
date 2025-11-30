@@ -22,6 +22,8 @@ import { supportRouter } from './modules/support/routes';
 import { stripeWebhookHandler } from './modules/payments/stripeWebhook';
 import { notificationsRouter } from './modules/notifications/routes';
 import { uploadRouter } from './modules/upload/routes';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 
 export const app = express();
 
@@ -32,6 +34,9 @@ app.post('/api/v1/payments/stripe/webhook', express.raw({ type: 'application/jso
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(authOptional);
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Auth endpoints (prefix with /api/v1 to be consistent with frontend API base)
 app.use('/api/v1/auth', authLimiter, authRouter);

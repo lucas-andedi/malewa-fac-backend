@@ -36,8 +36,8 @@ async function main() {
   });
   await prisma.user.upsert({
     where: { email: 'admin@demo.local' },
-    update: { passwordHash, status: 'active' },
-    create: { name: 'Admin', email: 'admin@demo.local', role: 'admin', status: 'active', passwordHash },
+    update: { passwordHash, status: 'active', role: 'superadmin' as any },
+    create: { name: 'Super Admin', email: 'admin@demo.local', role: 'superadmin' as any, status: 'active', passwordHash },
   });
 
   // Restaurants

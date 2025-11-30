@@ -14,6 +14,8 @@ enum UserRole {
   merchant
   courier
   admin
+  superadmin
+  dispatcher
 }
 
 enum UserStatus {
@@ -23,6 +25,7 @@ enum UserStatus {
 }
 
 enum OrderStatus {
+  pending_confirmation // New status for dispatcher validation
   received
   preparing
   ready
@@ -82,6 +85,8 @@ model User {
   status         UserStatus @default(active)
   institutionId  Int?
   institution    Institution? @relation(fields: [institutionId], references: [id])
+  otp            String?
+  otpExpiresAt   DateTime?
   restaurants    Restaurant[] @relation("RestaurantOwner")
   orders         Order[]      @relation("OrderCustomer")
   missions       DeliveryMission[] @relation("MissionCourier")
@@ -158,6 +163,7 @@ model Order {
   total              Int
   paymentMethod      PaymentMethod
   address            String?
+  notes              String?      @db.Text
   estimatedDistanceKm Float?
   status             OrderStatus  @default(received)
   createdAt          DateTime     @default(now())
@@ -169,14 +175,15 @@ model Order {
 }
 
 model OrderItem {
-  id       Int   @id @default(autoincrement())
-  orderId  Int
-  order    Order @relation(fields: [orderId], references: [id])
-  dishId   Int
-  dish     Dish  @relation(fields: [dishId], references: [id])
-  name     String
-  price    Int
-  qty      Int
+  id          Int   @id @default(autoincrement())
+  orderId     Int
+  order       Order @relation(fields: [orderId], references: [id])
+  dishId      Int
+  dish        Dish  @relation(fields: [dishId], references: [id])
+  name        String
+  price       Int
+  customPrice Int?
+  qty         Int
 }
 
 model DeliveryMission {

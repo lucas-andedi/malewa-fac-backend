@@ -5,6 +5,7 @@ import { asyncHandler } from '../../utils/http';
 import { rbac } from '../../middlewares/rbac';
 import { ensureMerchantAndCourierTransactions } from '../../utils/finance';
 import { notify } from '../../utils/notify';
+import { smsService } from '../../utils/sms';
 
 export const missionsRouter = Router();
 
@@ -136,6 +137,14 @@ missionsRouter.patch('/:id/status', rbac(['courier']), asyncHandler(async (req: 
         title: labels[status] || `Mise à jour: ${status}`,
         data: { orderId: order.id, missionId: updated.id }
       });
+      
+      // SMS to Customer on Delivered
+      if (status === 'delivered') {
+         const customer = await prisma.user.findUnique({ where: { id: order.customerUserId } });
+         if (customer?.phone) {
+             await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${order.code} a été livrée par le coursier. Merci!`);
+         }
+      }
     }
     if (status === 'delivered' && resto?.ownerUserId) {
       await notify(resto.ownerUserId, {
