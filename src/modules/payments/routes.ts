@@ -5,6 +5,7 @@ import { stripe } from '../../config/stripe';
 import { env } from '../../config/env';
 import { mokoService } from '../../utils/moko';
 import { createOrder } from '../orders/service';
+import { notify } from '../../utils/notify';
 
 export const paymentsRouter = Router();
 
@@ -299,6 +300,16 @@ paymentsRouter.post('/moko/webhook', asyncHandler(async (req: Request, res: Resp
                 providerRef: data.transaction_id || data.id // Save Moko ID if available
             }
         });
+
+        // Notify customer on successful payment
+        if (newStatus === 'succeeded') {
+             await notify(order.customerUserId, {
+                type: 'order.paid',
+                title: 'Paiement reçu',
+                message: `Votre commande ${order.code} est payée et en attente de confirmation.`,
+                data: { orderId: order.id }
+            });
+        }
     }
 
     res.json({ status: 'received' });
