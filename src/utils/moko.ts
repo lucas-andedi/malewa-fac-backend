@@ -88,7 +88,8 @@ class MokoService {
   async initiateCollection(data: TransactionRequest): Promise<MokoResponse> {
     try {
       
-      const url = `${env.mokoBaseUrl}/transactions`; 
+      // Use /collect endpoint for debit actions
+      const url = `${env.mokoBaseUrl}`; 
       
       const payload = {
         merchant_id: env.mokoMerchantId,
@@ -120,7 +121,7 @@ class MokoService {
   async initiatePayout(data: TransactionRequest): Promise<MokoResponse> {
     try {
       // Following doc: "Requesting Payout (B2C)"
-      const url = `${env.mokoBaseUrl}/transactions`; 
+      const url = `${env.mokoBaseUrl}`; 
       
       const payload = {
         merchant_id: env.mokoMerchantId,
@@ -133,7 +134,7 @@ class MokoService {
         firstname: data.firstname || 'Merchant',
         lastname: data.lastname || 'Partner',
         "e-mail": data.email || 'merchant@malewa.com',
-        method: data.method || 'airtel',
+        method: data.method || 'mpesa',
         callback_url: data.callback_url || `${env.appUrl}/api/v1/payments/moko/webhook`
       };
 
