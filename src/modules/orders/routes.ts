@@ -76,7 +76,7 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin']), asy
       }
     }
   } catch (e) {
-    logger.error({ err: e }, 'Failed to notify merchant');
+    logger.error({ err: e }, 'Failed to notify merchant here ');
   }
 
   res.json(updated);
