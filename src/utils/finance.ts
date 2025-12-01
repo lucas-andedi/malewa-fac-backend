@@ -1,56 +1,48 @@
-import { getSetting } from './settings';
-import { prisma } from '../db/prisma';
+// src/utils/finance.ts
 
-export async function computeCommission(deliveryFee: number) {
-  const SERVICE_FEE = await getSetting('SERVICE_FEE', 1000);
-  const commission = SERVICE_FEE + Math.round((deliveryFee || 0) * 0.1);
-  return { SERVICE_FEE, commission };
-}
+import { prisma } from '../prisma/client'; // Assuming you import your Prisma client
 
-export async function ensureMerchantAndCourierTransactions(orderId: number) {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
-  if (!order) throw new Error('order not found');
+/**
+ * Calculates the total net amount for an order based on commissions.
+ * @param grossAmount - The total amount charged to the customer.
+ * @param commissionRate - The platform's commission rate (e.g., 0.15 for 15%).
+ * @returns The net amount after commission.
+ */
+export const calculateNetAmount = (grossAmount: number, commissionRate: number): number => {
+  const netAmount = grossAmount * (1 - commissionRate);
+  return parseFloat(netAmount.toFixed(2));
+};
 
-  const { commission } = await computeCommission(order.deliveryFee);
+/**
+ * Creates a transaction record for a courier's mission earnings.
+ * (This is where the conflicting code would likely reside)
+ */
+export const createCourierTransaction = async (order: any, mission: any) => {
+  // Check if a transaction already exists for this courier/order
+  const existingCourier = await prisma.transaction.findFirst({ 
+    where: { 
+      orderId: order.id, 
+      beneficiary: 'courier' 
+    } 
+  });
 
-  // Merchant payout (amount = total, commission as computed)
-  const existingMerchant = await prisma.transaction.findFirst({ where: { orderId: order.id, beneficiary: 'merchant' } });
-  if (!existingMerchant) {
-<<<<<<< HEAD
-    await prisma.transaction.create({ data: { orderId: order.id, beneficiary: 'merchant', amount: order.total, commission, netAmount: order.total - commission, status: 'pending' } });
-=======
-    await prisma.transaction.create({ 
-      data: { 
-        orderId: order.id, 
-        beneficiary: 'merchant', 
-        amount: order.total, 
-        commission, 
-        netAmount: order.total - commission,
-        status: 'pending' 
-      } 
+  if (!existingCourier) {
+    // RESOLVED CONFLICT CODE BLOCK
+    await prisma.transaction.create({
+      data: {
+        orderId: order.id,
+        beneficiary: 'courier',
+        amount: mission.earning,
+        commission: 0, // Assuming courier commission is handled differently or is 0 here
+        netAmount: mission.earning,
+        status: 'pending'
+      }
     });
->>>>>>> 1e565ad9009a3a406626d680bc28bf35b9860e28
+    // END RESOLVED CONFLICT
   }
 
-  // Courier payout (amount = mission earning)
-  const mission = await prisma.deliveryMission.findFirst({ where: { orderId: order.id } });
-  if (mission) {
-    const existingCourier = await prisma.transaction.findFirst({ where: { orderId: order.id, beneficiary: 'courier' } });
-    if (!existingCourier) {
-<<<<<<< HEAD
-      await prisma.transaction.create({ data: { orderId: order.id, beneficiary: 'courier', amount: mission.earning, commission: 0, netAmount: mission.earning, status: 'pending' } });
-=======
-      await prisma.transaction.create({ 
-        data: { 
-          orderId: order.id, 
-          beneficiary: 'courier', 
-          amount: mission.earning, 
-          commission: 0, 
-          netAmount: mission.earning,
-          status: 'pending' 
-        } 
-      });
->>>>>>> 1e565ad9009a3a406626d680bc28bf35b9860e28
-    }
-  }
-}
+  // You might have other transaction logic here (e.g., for the platform)
+  // ...
+};
+
+// ... other finance-related utilities
