@@ -6,7 +6,41 @@ import { uploadMiddleware, uploadToSpaces } from '../../utils/upload';
 
 export const dishesRouter = Router();
 
-// PATCH /api/v1/dishes/:id (merchant/admin)
+/**
+ * @swagger
+ * /api/v1/dishes/{id}:
+ *   patch:
+ *     summary: Update a dish
+ *     tags: [Dishes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               description:
+ *                 type: string
+ *               available:
+ *                 type: boolean
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Dish updated
+ */
 dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid dish id' } });
@@ -46,7 +80,24 @@ dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('
   res.json(updated);
 }));
 
-// DELETE /api/v1/dishes/:id (merchant/admin)
+/**
+ * @swagger
+ * /api/v1/dishes/{id}:
+ *   delete:
+ *     summary: Delete a dish
+ *     tags: [Dishes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Dish deleted
+ */
 dishesRouter.delete('/:id', rbac(['merchant','admin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid dish id' } });

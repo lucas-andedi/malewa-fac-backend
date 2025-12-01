@@ -5,7 +5,33 @@ import { asyncHandler } from '../../utils/http';
 
 export const supportRouter = Router();
 
-// Create a ticket
+/**
+ * @swagger
+ * /api/v1/support:
+ *   post:
+ *     summary: Create support ticket
+ *     tags: [Support]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [subject, message]
+ *             properties:
+ *               subject:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               priority:
+ *                 type: string
+ *                 enum: [low, medium, high]
+ *     responses:
+ *       201:
+ *         description: Ticket created
+ */
 supportRouter.post('/', rbac(['client', 'merchant', 'courier', 'admin']), asyncHandler(async (req: Request, res: Response) => {
   const { subject, message, priority } = req.body as { subject: string; message: string; priority?: string };
   const userId = (req as any).user.id;
@@ -24,7 +50,18 @@ supportRouter.post('/', rbac(['client', 'merchant', 'courier', 'admin']), asyncH
   res.status(201).json({ ok: true });
 }));
 
-// Get my tickets
+/**
+ * @swagger
+ * /api/v1/support/me:
+ *   get:
+ *     summary: Get my tickets
+ *     tags: [Support]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of tickets
+ */
 supportRouter.get('/me', rbac(['client', 'merchant', 'courier', 'admin']), asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as any).user.id;
   
@@ -35,8 +72,19 @@ supportRouter.get('/me', rbac(['client', 'merchant', 'courier', 'admin']), async
   res.json(tickets);
 }));
 
-// Admin: List all tickets
-supportRouter.get('/admin', rbac(['admin']), asyncHandler(async (req: Request, res: Response) => {
+/**
+ * @swagger
+ * /api/v1/support/admin:
+ *   get:
+ *     summary: List all tickets (admin)
+ *     tags: [Support]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all tickets
+ */
+supportRouter.get('/admin', rbac(['admin', 'superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const tickets = await prisma.$queryRaw`
     SELECT t.*, u.name as userName, u.email as userEmail, u.role as userRole 
     FROM SupportTicket t
@@ -46,8 +94,36 @@ supportRouter.get('/admin', rbac(['admin']), asyncHandler(async (req: Request, r
   res.json(tickets);
 }));
 
-// Admin: Update status
-supportRouter.patch('/:id/status', rbac(['admin']), asyncHandler(async (req: Request, res: Response) => {
+/**
+ * @swagger
+ * /api/v1/support/{id}/status:
+ *   patch:
+ *     summary: Update ticket status (admin)
+ *     tags: [Support]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [open, resolved, closed]
+ *     responses:
+ *       200:
+ *         description: Status updated
+ */
+supportRouter.patch('/:id/status', rbac(['admin', 'superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const { status } = req.body; // 'open', 'resolved', 'closed'
 
