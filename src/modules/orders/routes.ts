@@ -13,12 +13,67 @@ import { logger } from '../../config/logger';
 export const ordersRouter = Router();
 
 
+/**
+ * @swagger
+ * /api/v1/orders:
+ *   post:
+ *     summary: Create a new order
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [restaurantId, items, customerUserId]
+ *             properties:
+ *               restaurantId:
+ *                 type: integer
+ *               customerName:
+ *                 type: string
+ *               customerUserId:
+ *                 type: integer
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [dishId, qty]
+ *                   properties:
+ *                     dishId:
+ *                       type: integer
+ *                     qty:
+ *                       type: integer
+ *               deliveryMethod:
+ *                 type: string
+ *                 enum: [campus, offcampus, pickup]
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [mobile, card, cash]
+ *               address:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Order created
+ */
 ordersRouter.post('/', validate(CreateOrderSchema), asyncHandler(async (req: Request, res: Response) => {
   const order = await createOrder(req.body as any);
   res.status(201).json(order);
 }));
 
-// GET /api/v1/orders/me (auth required)
+/**
+ * @swagger
+ * /api/v1/orders/me:
+ *   get:
+ *     summary: Get my orders
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of orders
+ */
 ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number; role: string };
   const orders = await prisma.order.findMany({
@@ -29,7 +84,24 @@ ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin'
   res.json(orders);
 }));
 
-// GET /api/v1/orders/:id (auth required)
+/**
+ * @swagger
+ * /api/v1/orders/{id}:
+ *   get:
+ *     summary: Get order details
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Order details
+ */
 ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid order id' } });
@@ -38,7 +110,24 @@ ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin
   res.json(order);
 }));
 
-// POST /api/v1/orders/:id/confirm (dispatcher/admin/superadmin)
+/**
+ * @swagger
+ * /api/v1/orders/{id}/confirm:
+ *   post:
+ *     summary: Confirm an order (dispatcher/admin)
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Order confirmed
+ */
 ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid order id' } });
@@ -82,7 +171,35 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin']), asy
   res.json(updated);
 }));
 
-// PATCH /api/v1/orders/:id/status (merchant/admin/dispatcher)
+/**
+ * @swagger
+ * /api/v1/orders/{id}/status:
+ *   patch:
+ *     summary: Update order status
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [received, preparing, ready, delivering, delivered, rejected]
+ *     responses:
+ *       200:
+ *         description: Status updated
+ */
 ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatcher','courier']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const { status } = req.body as { status: 'received'|'preparing'|'ready'|'delivering'|'delivered'|'rejected' };
@@ -142,7 +259,24 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
   res.json(updated);
 }));
 
-// POST /api/v1/orders/:id/assign-mission (merchant/admin)
+/**
+ * @swagger
+ * /api/v1/orders/{id}/assign-mission:
+ *   post:
+ *     summary: Assign delivery mission for order
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       201:
+ *         description: Mission created
+ */
 ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid order id' } });

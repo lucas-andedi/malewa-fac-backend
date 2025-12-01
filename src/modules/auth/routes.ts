@@ -162,6 +162,26 @@ authRouter.post('/verify-otp', validate(VerifyOtpSchema), asyncHandler(async (re
   res.json({ user: updated, accessToken, refreshToken });
 }));
 
+/**
+ * @swagger
+ * /api/v1/auth/resend-otp:
+ *   post:
+ *     summary: Resend OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phone]
+ *             properties:
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: OTP resent
+ */
 authRouter.post('/resend-otp', validate(ResendOtpSchema), asyncHandler(async (req: Request, res: Response) => {
   const { phone } = req.body as ResendOtpInput;
   
@@ -224,6 +244,26 @@ authRouter.post('/login', validate(LoginSchema), asyncHandler(async (req: Reques
   res.json({ user, accessToken, refreshToken });
 }));
 
+/**
+ * @swagger
+ * /api/v1/auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: New access token
+ */
 authRouter.post('/refresh', validate(RefreshSchema), asyncHandler(async (req: Request, res: Response) => {
   const { refreshToken } = req.body as { refreshToken: string };
   try {
@@ -237,6 +277,18 @@ authRouter.post('/refresh', validate(RefreshSchema), asyncHandler(async (req: Re
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/auth/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile
+ */
 authRouter.get('/me', asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user;
   if (!user) return res.status(401).json({ error: { message: 'Unauthorized' } });
@@ -244,6 +296,16 @@ authRouter.get('/me', asyncHandler(async (req: Request, res: Response) => {
   res.json(u);
 }));
 
+/**
+ * @swagger
+ * /api/v1/auth/logout:
+ *   post:
+ *     summary: Logout
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ */
 authRouter.post('/logout', (_req: Request, res: Response) => {
   // Stateless JWT: logout is handled client-side (token discard)
   res.json({ ok: true });

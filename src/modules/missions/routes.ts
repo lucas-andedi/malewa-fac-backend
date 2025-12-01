@@ -9,7 +9,24 @@ import { smsService } from '../../utils/sms';
 
 export const missionsRouter = Router();
 
-// GET /api/v1/missions?status=available|active|delivered
+/**
+ * @swagger
+ * /api/v1/missions:
+ *   get:
+ *     summary: List delivery missions
+ *     tags: [Missions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [available, active, delivered]
+ *     responses:
+ *       200:
+ *         description: List of missions
+ */
 missionsRouter.get('/', rbac(['courier','admin']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number; role: string };
   const status = String((req.query as any).status || 'available');
@@ -46,7 +63,24 @@ missionsRouter.get('/', rbac(['courier','admin']), asyncHandler(async (req: Requ
   res.json(response);
 }));
 
-// POST /api/v1/missions/:id/accept (courier)
+/**
+ * @swagger
+ * /api/v1/missions/{id}/accept:
+ *   post:
+ *     summary: Accept a mission (courier)
+ *     tags: [Missions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Mission accepted
+ */
 missionsRouter.post('/:id/accept', rbac(['courier']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number };
   const id = Number(req.params.id);
@@ -97,7 +131,35 @@ missionsRouter.post('/:id/accept', rbac(['courier']), asyncHandler(async (req: R
     }
   } catch {}
 }))
-// PATCH /api/v1/missions/:id/status (courier)
+/**
+ * @swagger
+ * /api/v1/missions/{id}/status:
+ *   patch:
+ *     summary: Update mission status
+ *     tags: [Missions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [picked, enroute, delivered]
+ *     responses:
+ *       200:
+ *         description: Status updated
+ */
 missionsRouter.patch('/:id/status', rbac(['courier']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number };
   const id = Number(req.params.id);
@@ -120,11 +182,15 @@ missionsRouter.patch('/:id/status', rbac(['courier']), asyncHandler(async (req: 
     const m = await tx.deliveryMission.update({ where: { id }, data: { status } });
     if (status === 'delivered') {
       await tx.order.update({ where: { id: existing.orderId }, data: { status: 'delivered' } });
-      // ensure transactions exist
-      await ensureMerchantAndCourierTransactions(existing.orderId);
     }
     return m;
   });
+
+  if (status === 'delivered') {
+    // ensure transactions exist
+    await ensureMerchantAndCourierTransactions(existing.orderId);
+  }
+
   res.json(updated);
   // Notify customer on status progression
   try {

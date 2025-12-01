@@ -15,7 +15,41 @@ async function getSetting(key: string, fallback: number): Promise<number> {
   return s ? Number(s.svalue) : fallback;
 }
 
-// POST /api/v1/payments/cart-intent (no auth) - prepare Stripe intent from cart, before order creation
+/**
+ * @swagger
+ * /api/v1/payments/cart-intent:
+ *   post:
+ *     summary: Create payment intent from cart
+ *     tags: [Payments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [restaurantId, items, deliveryMethod]
+ *             properties:
+ *               restaurantId:
+ *                 type: integer
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [dishId, qty]
+ *                   properties:
+ *                     dishId:
+ *                       type: integer
+ *                     qty:
+ *                       type: integer
+ *               deliveryMethod:
+ *                 type: string
+ *                 enum: [campus, offcampus, pickup]
+ *               estimatedDistanceKm:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Intent created
+ */
 paymentsRouter.post('/cart-intent', asyncHandler(async (req: Request, res: Response) => {
   const { restaurantId, items, deliveryMethod, estimatedDistanceKm } = req.body as {
     restaurantId?: number;
@@ -70,7 +104,35 @@ paymentsRouter.post('/cart-intent', asyncHandler(async (req: Request, res: Respo
   });
 }));
 
-// POST /api/v1/payments/intent (auth)
+/**
+ * @swagger
+ * /api/v1/payments/intent:
+ *   post:
+ *     summary: Create payment intent for order
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [orderId, method]
+ *             properties:
+ *               orderId:
+ *                 type: integer
+ *               method:
+ *                 type: string
+ *                 enum: [mobile, card, cod]
+ *               phoneNumber:
+ *                 type: string
+ *               provider:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Intent created
+ */
 paymentsRouter.post('/intent', asyncHandler(async (req: Request, res: Response) => {
   const { orderId, method, phoneNumber, provider } = req.body as { orderId: number; method: 'mobile'|'card'|'cod'; phoneNumber?: string; provider?: string };
   if (!orderId || !method) return res.status(400).json({ error: { message: 'orderId and method required' } });
@@ -157,7 +219,18 @@ paymentsRouter.post('/webhook', asyncHandler(async (req: Request, res: Response)
     res.json({ ok: true });
 }));
 
-// POST /api/v1/payments/mobile/initiate (Legacy/Alias for Moko)
+/**
+ * @swagger
+ * /api/v1/payments/mobile/initiate:
+ *   post:
+ *     summary: Initiate mobile payment (Legacy)
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Payment initiated
+ */
 paymentsRouter.post('/mobile/initiate', asyncHandler(async (req: Request, res: Response) => {
     // Forward to /intent logic manually
     // Legacy payload might differ, but assuming similar fields
@@ -238,7 +311,25 @@ paymentsRouter.post('/mobile/initiate', asyncHandler(async (req: Request, res: R
     });
 }));
 
-// GET /api/v1/payments/mobile/status (Legacy/Compat)
+/**
+ * @swagger
+ * /api/v1/payments/mobile/status:
+ *   get:
+ *     summary: Check mobile payment status
+ *     tags: [Payments]
+ *     parameters:
+ *       - in: query
+ *         name: orderCode
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment status
+ */
 paymentsRouter.get('/mobile/status', asyncHandler(async (req: Request, res: Response) => {
     const { orderCode, orderId } = req.query as { orderCode?: string; orderId?: string };
     
