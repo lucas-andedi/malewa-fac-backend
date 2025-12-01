@@ -1,0 +1,20 @@
+2025-11-30 22:43 +00:00: ValidationError: The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false (default). This could indicate a misconfiguration which would prevent express-rate-limit from accurately identifying users. See https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/ for more information.
+2025-11-30 22:43 +00:00:     at Object.xForwardedForHeader (/var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:185:13)
+2025-11-30 22:43 +00:00:     at wrappedValidations.<computed> [as xForwardedForHeader] (/var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:397:22)
+2025-11-30 22:43 +00:00:     at Object.keyGenerator (/var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:658:20)
+2025-11-30 22:43 +00:00:     at /var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:710:32
+2025-11-30 22:43 +00:00:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2025-11-30 22:43 +00:00:     at async /var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:691:5 {
+2025-11-30 22:43 +00:00:   code: 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR',
+2025-11-30 22:43 +00:00:   help: 'https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/'
+2025-11-30 22:43 +00:00: }
+2025-11-30 23:55 +00:00: ValidationError: The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false (default). This could indicate a misconfiguration which would prevent express-rate-limit from accurately identifying users. See https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/ for more information.
+2025-11-30 23:55 +00:00:     at Object.xForwardedForHeader (/var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:185:13)
+2025-11-30 23:55 +00:00:     at wrappedValidations.<computed> [as xForwardedForHeader] (/var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:397:22)
+2025-11-30 23:55 +00:00:     at Object.keyGenerator (/var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:658:20)
+2025-11-30 23:55 +00:00:     at /var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:710:32
+2025-11-30 23:55 +00:00:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2025-11-30 23:55 +00:00:     at async /var/www/malewa-fac-backend/node_modules/express-rate-limit/dist/index.cjs:691:5 {
+2025-11-30 23:55 +00:00:   code: 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR',
+2025-11-30 23:55 +00:00:   help: 'https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/'
+2025-11-30 23:55 +00:00: }
