@@ -6,8 +6,8 @@ import { uploadMiddleware, uploadToSpaces } from '../../utils/upload';
 
 export const restaurantsRouter = Router();
 
-// POST /api/v1/restaurants (merchant/admin)
-restaurantsRouter.post('/', rbac(['merchant','admin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
+// POST /api/v1/restaurants (merchant/admin/superadmin)
+restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number; institutionId?: number; role: string };
   const { name, deliveryFeeCampus, address, description } = req.body;
   let institutionIds = req.body.institutionIds;
@@ -37,12 +37,14 @@ restaurantsRouter.post('/', rbac(['merchant','admin']), uploadMiddleware.single(
     photoUrl = await uploadToSpaces(req.file, 'restaurants');
   }
 
+  const status = ['admin', 'superadmin'].includes(user.role) ? 'active' : 'pending';
+
   const created = await prisma.restaurant.create({
     data: {
       name,
       address,
       description,
-      status: 'pending',
+      status,
       ownerUserId,
       deliveryFeeCampus: deliveryFeeCampus ? Number(deliveryFeeCampus) : 1500,
       code: name.substring(0,3).toUpperCase() + Math.floor(Math.random()*1000),
@@ -63,8 +65,8 @@ restaurantsRouter.post('/', rbac(['merchant','admin']), uploadMiddleware.single(
   res.status(201).json(response);
 }));
 
-// PATCH /api/v1/restaurants/:id (merchant/admin)
-restaurantsRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
+// PATCH /api/v1/restaurants/:id (merchant/admin/superadmin)
+restaurantsRouter.patch('/:id', rbac(['merchant','admin','superadmin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
 
@@ -213,8 +215,8 @@ restaurantsRouter.get('/:id/transactions', rbac(['merchant']), asyncHandler(asyn
   res.json(transactions);
 }));
 
-// GET /api/v1/restaurants/:id/orders (merchant/admin)
-restaurantsRouter.get('/:id/orders', rbac(['merchant','admin']), asyncHandler(async (req: Request, res: Response) => {
+// GET /api/v1/restaurants/:id/orders (merchant/admin/superadmin)
+restaurantsRouter.get('/:id/orders', rbac(['merchant','admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
   const user = (req as any).user as { id: number; role: string };
@@ -231,8 +233,8 @@ restaurantsRouter.get('/:id/orders', rbac(['merchant','admin']), asyncHandler(as
   res.json(orders);
 }));
 
-// POST /api/v1/restaurants/:id/dishes (merchant/admin)
-restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
+// POST /api/v1/restaurants/:id/dishes (merchant/admin/superadmin)
+restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin','superadmin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
   

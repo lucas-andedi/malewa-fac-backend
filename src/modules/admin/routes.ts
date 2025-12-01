@@ -134,8 +134,17 @@ adminRouter.get('/restaurants', rbac(['admin','superadmin']), asyncHandler(async
   const status = (req.query as any).status;
   const where: any = {};
   if (status && status !== 'all') where.status = status;
-  const list = await prisma.restaurant.findMany({ where, orderBy: { createdAt: 'desc' } });
-  res.json(list);
+  const list = await prisma.restaurant.findMany({ 
+    where, 
+    orderBy: { createdAt: 'desc' },
+    include: { institutionLinks: { include: { institution: true } } }
+  });
+  const response = list.map(r => ({
+    ...r,
+    institutions: r.institutionLinks.map(l => l.institution),
+    institutionLinks: undefined
+  }));
+  res.json(response);
 }));
 
 // PATCH /api/v1/admin/restaurants/:id/status
@@ -173,4 +182,52 @@ adminRouter.patch('/restaurants/:id/status', rbac(['admin','superadmin']), async
      } catch {}
   }
   res.json(updated);
+}));
+
+// GET /api/v1/admin/finance/merchants
+adminRouter.get('/finance/merchants', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
+  const { from, to } = req.query as { from?: string; to?: string };
+  const where: any = { status: 'delivered' };
+  if (from && to) {
+    where.updatedAt = {
+      gte: new Date(from),
+      lte: new Date(to)
+    };
+  }
+
+  const orders = await prisma.order.findMany({
+    where,
+    include: { restaurant: true }
+  });
+
+  const stats: Record<number, { 
+      restaurantId: number; 
+      name: string;
+      totalSales: number; 
+      totalServiceFee: number; 
+      pickupFee: number; 
+      deliveryFeeGenerated: number; 
+  }> = {};
+
+  for (const o of orders) {
+      if (!stats[o.restaurantId]) {
+          stats[o.restaurantId] = {
+              restaurantId: o.restaurantId,
+              name: o.restaurant.name,
+              totalSales: 0,
+              totalServiceFee: 0,
+              pickupFee: 0,
+              deliveryFeeGenerated: 0
+          };
+      }
+      stats[o.restaurantId].totalSales += o.subtotal;
+      stats[o.restaurantId].totalServiceFee += o.serviceFee;
+      if (o.deliveryMethod === 'pickup') {
+          stats[o.restaurantId].pickupFee += o.serviceFee;
+      } else {
+          stats[o.restaurantId].deliveryFeeGenerated += o.serviceFee;
+      }
+  }
+
+  res.json(Object.values(stats));
 }));

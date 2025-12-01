@@ -36,7 +36,7 @@ supportRouter.get('/me', rbac(['client', 'merchant', 'courier', 'admin']), async
 }));
 
 // Admin: List all tickets
-supportRouter.get('/admin', rbac(['admin']), asyncHandler(async (req: Request, res: Response) => {
+supportRouter.get('/admin', rbac(['admin', 'superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const tickets = await prisma.$queryRaw`
     SELECT t.*, u.name as userName, u.email as userEmail, u.role as userRole 
     FROM SupportTicket t
@@ -47,7 +47,7 @@ supportRouter.get('/admin', rbac(['admin']), asyncHandler(async (req: Request, r
 }));
 
 // Admin: Update status
-supportRouter.patch('/:id/status', rbac(['admin']), asyncHandler(async (req: Request, res: Response) => {
+supportRouter.patch('/:id/status', rbac(['admin', 'superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const { status } = req.body; // 'open', 'resolved', 'closed'
 

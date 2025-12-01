@@ -120,11 +120,15 @@ missionsRouter.patch('/:id/status', rbac(['courier']), asyncHandler(async (req: 
     const m = await tx.deliveryMission.update({ where: { id }, data: { status } });
     if (status === 'delivered') {
       await tx.order.update({ where: { id: existing.orderId }, data: { status: 'delivered' } });
-      // ensure transactions exist
-      await ensureMerchantAndCourierTransactions(existing.orderId);
     }
     return m;
   });
+
+  if (status === 'delivered') {
+    // ensure transactions exist
+    await ensureMerchantAndCourierTransactions(existing.orderId);
+  }
+
   res.json(updated);
   // Notify customer on status progression
   try {

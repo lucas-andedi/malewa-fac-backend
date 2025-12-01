@@ -16,7 +16,16 @@ export async function ensureMerchantAndCourierTransactions(orderId: number) {
   // Merchant payout (amount = total, commission as computed)
   const existingMerchant = await prisma.transaction.findFirst({ where: { orderId: order.id, beneficiary: 'merchant' } });
   if (!existingMerchant) {
-    await prisma.transaction.create({ data: { orderId: order.id, beneficiary: 'merchant', amount: order.total, commission, status: 'pending' } });
+    await prisma.transaction.create({ 
+      data: { 
+        orderId: order.id, 
+        beneficiary: 'merchant', 
+        amount: order.total, 
+        commission, 
+        netAmount: order.total - commission,
+        status: 'pending' 
+      } 
+    });
   }
 
   // Courier payout (amount = mission earning)
@@ -24,7 +33,16 @@ export async function ensureMerchantAndCourierTransactions(orderId: number) {
   if (mission) {
     const existingCourier = await prisma.transaction.findFirst({ where: { orderId: order.id, beneficiary: 'courier' } });
     if (!existingCourier) {
-      await prisma.transaction.create({ data: { orderId: order.id, beneficiary: 'courier', amount: mission.earning, commission: 0, status: 'pending' } });
+      await prisma.transaction.create({ 
+        data: { 
+          orderId: order.id, 
+          beneficiary: 'courier', 
+          amount: mission.earning, 
+          commission: 0, 
+          netAmount: mission.earning,
+          status: 'pending' 
+        } 
+      });
     }
   }
 }
