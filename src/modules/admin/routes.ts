@@ -6,7 +6,28 @@ import { notify } from '../../utils/notify';
 
 export const adminRouter = Router();
 
-// GET /api/v1/admin/users?status=pending|active|suspended
+/**
+ * @swagger
+ * /api/v1/admin/users:
+ *   get:
+ *     summary: List users
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, active, suspended]
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of users
+ */
 adminRouter.get('/users', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const status = (req.query as any).status as 'pending'|'active'|'suspended'|undefined;
   const role = (req.query as any).role as string|undefined;
@@ -17,7 +38,35 @@ adminRouter.get('/users', rbac(['admin','superadmin']), asyncHandler(async (req:
   res.json(users);
 }));
 
-// POST /api/v1/admin/users (superadmin only) - Create Admin/Dispatcher
+/**
+ * @swagger
+ * /api/v1/admin/users:
+ *   post:
+ *     summary: Create Admin/Dispatcher (Superadmin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, phone, password, role]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [admin, dispatcher]
+ *     responses:
+ *       201:
+ *         description: User created
+ */
 adminRouter.post('/users', rbac(['superadmin']), asyncHandler(async (req: Request, res: Response) => {
     const { name, phone, password, role } = req.body;
     if (!['admin', 'dispatcher'].includes(role)) return res.status(400).json({ error: { message: 'Invalid role' } });
@@ -38,7 +87,35 @@ adminRouter.post('/users', rbac(['superadmin']), asyncHandler(async (req: Reques
     res.status(201).json(user);
 }));
 
-// PATCH /api/v1/admin/users/:id/status
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}/status:
+ *   patch:
+ *     summary: Update user status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [pending, active, suspended]
+ *     responses:
+ *       200:
+ *         description: User updated
+ */
 adminRouter.patch('/users/:id/status', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const { status } = req.body as { status: 'pending'|'active'|'suspended' };
@@ -57,7 +134,35 @@ adminRouter.patch('/users/:id/status', rbac(['admin','superadmin']), asyncHandle
   res.json(updated);
 }));
 
-// PATCH /api/v1/admin/users/:id/role
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}/role:
+ *   patch:
+ *     summary: Update user role (Superadmin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [role]
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [client, merchant, courier, admin, superadmin, dispatcher]
+ *     responses:
+ *       200:
+ *         description: Role updated
+ */
 adminRouter.patch('/users/:id/role', rbac(['superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const { role } = req.body;
@@ -75,7 +180,24 @@ adminRouter.patch('/users/:id/role', rbac(['superadmin']), asyncHandler(async (r
   res.json(updated);
 }));
 
-// DELETE /api/v1/admin/users/:id
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}:
+ *   delete:
+ *     summary: Delete user
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User deleted
+ */
 adminRouter.delete('/users/:id', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid user id' } });
@@ -83,7 +205,18 @@ adminRouter.delete('/users/:id', rbac(['admin','superadmin']), asyncHandler(asyn
   res.json({ ok: true });
 }));
 
-// GET /api/v1/admin/stats
+/**
+ * @swagger
+ * /api/v1/admin/stats:
+ *   get:
+ *     summary: Get admin dashboard stats
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Stats object
+ */
 adminRouter.get('/stats', rbac(['admin','superadmin','dispatcher']), asyncHandler(async (_req: Request, res: Response) => {
   const [totalOrders, revenueAgg, commissionAgg, newUsers, recentTx] = await Promise.all([
     prisma.order.count(),
@@ -102,7 +235,23 @@ adminRouter.get('/stats', rbac(['admin','superadmin','dispatcher']), asyncHandle
   });
 }));
 
-// GET /api/v1/admin/orders
+/**
+ * @swagger
+ * /api/v1/admin/orders:
+ *   get:
+ *     summary: List all orders
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of orders
+ */
 adminRouter.get('/orders', rbac(['admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const status = (req.query as any).status;
   const where: any = {};
@@ -120,7 +269,24 @@ adminRouter.get('/orders', rbac(['admin','superadmin','dispatcher']), asyncHandl
   res.json(list);
 }));
 
-// GET /api/v1/admin/transactions
+/**
+ * @swagger
+ * /api/v1/admin/transactions:
+ *   get:
+ *     summary: List all transactions
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, paid]
+ *     responses:
+ *       200:
+ *         description: List of transactions
+ */
 adminRouter.get('/transactions', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const status = (req.query as any).status as 'pending'|'paid'|undefined;
   const where: any = {};
@@ -129,7 +295,23 @@ adminRouter.get('/transactions', rbac(['admin','superadmin']), asyncHandler(asyn
   res.json(list);
 }));
 
-// GET /api/v1/admin/restaurants
+/**
+ * @swagger
+ * /api/v1/admin/restaurants:
+ *   get:
+ *     summary: List all restaurants (admin view)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of restaurants
+ */
 adminRouter.get('/restaurants', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const status = (req.query as any).status;
   const where: any = {};
@@ -147,7 +329,37 @@ adminRouter.get('/restaurants', rbac(['admin','superadmin']), asyncHandler(async
   res.json(response);
 }));
 
-// PATCH /api/v1/admin/restaurants/:id/status
+/**
+ * @swagger
+ * /api/v1/admin/restaurants/{id}/status:
+ *   patch:
+ *     summary: Update restaurant status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [pending, active, rejected, suspended]
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Restaurant updated
+ */
 adminRouter.patch('/restaurants/:id/status', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const { status, reason } = req.body;
@@ -184,7 +396,29 @@ adminRouter.patch('/restaurants/:id/status', rbac(['admin','superadmin']), async
   res.json(updated);
 }));
 
-// GET /api/v1/admin/finance/merchants
+/**
+ * @swagger
+ * /api/v1/admin/finance/merchants:
+ *   get:
+ *     summary: Get merchant financial stats
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Financial stats
+ */
 adminRouter.get('/finance/merchants', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const { from, to } = req.query as { from?: string; to?: string };
   const where: any = { status: 'delivered' };
