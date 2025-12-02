@@ -34,7 +34,14 @@ adminRouter.get('/users', rbac(['admin','superadmin']), asyncHandler(async (req:
   const where: any = {};
   if (status) where.status = status;
   if (role) where.role = role;
-  const users = await prisma.user.findMany({ where, orderBy: { id: 'desc' } });
+  
+  const users = await prisma.user.findMany({ 
+    where, 
+    orderBy: { id: 'desc' },
+    include: {
+      managedRestaurants: { select: { id: true, name: true } }
+    }
+  });
   res.json(users);
 }));
 
@@ -62,14 +69,14 @@ adminRouter.get('/users', rbac(['admin','superadmin']), asyncHandler(async (req:
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [admin, dispatcher]
+ *                 enum: [admin, dispatcher, agent]
  *     responses:
- *       201:
- *         description: User created
+ *       200:
+ *         description: User updated
  */
 adminRouter.post('/users', rbac(['superadmin']), asyncHandler(async (req: Request, res: Response) => {
     const { name, phone, password, role } = req.body;
-    if (!['admin', 'dispatcher'].includes(role)) return res.status(400).json({ error: { message: 'Invalid role' } });
+    if (!['admin', 'dispatcher', 'agent'].includes(role)) return res.status(400).json({ error: { message: 'Invalid role' } });
     
     const exists = await prisma.user.findUnique({ where: { phone } });
     if (exists) return res.status(400).json({ error: { message: 'Phone already in use' } });
@@ -166,7 +173,7 @@ adminRouter.patch('/users/:id/status', rbac(['admin','superadmin']), asyncHandle
 adminRouter.patch('/users/:id/role', rbac(['superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const { role } = req.body;
-  const allowedRoles = ['client', 'merchant', 'courier', 'admin', 'superadmin', 'dispatcher'];
+  const allowedRoles = ['client', 'merchant', 'courier', 'admin', 'superadmin', 'dispatcher', 'agent'];
   
   if (isNaN(id) || !allowedRoles.includes(role)) {
     return res.status(400).json({ error: { message: 'Invalid role' } });
@@ -237,6 +244,62 @@ adminRouter.get('/stats', rbac(['admin','superadmin','dispatcher']), asyncHandle
 
 /**
  * @swagger
+ * /api/v1/admin/agents/{id}/restaurants:
+ *   put:
+ *     summary: Assign restaurants to agent
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [restaurantIds]
+ *             properties:
+ *               restaurantIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *     responses:
+ *       200:
+ *         description: Restaurants assigned
+ */
+adminRouter.put('/agents/:id/restaurants', rbac(['superadmin']), asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const { restaurantIds } = req.body;
+  
+  if (isNaN(id) || !Array.isArray(restaurantIds)) {
+    return res.status(400).json({ error: { message: 'Invalid payload' } });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user || user.role !== 'agent') {
+    return res.status(400).json({ error: { message: 'User not found or not an agent' } });
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: {
+      managedRestaurants: {
+        set: restaurantIds.map((rid: number) => ({ id: rid }))
+      }
+    },
+    include: { managedRestaurants: true }
+  });
+
+  res.json(updated);
+}));
+
+/**
+ * @swagger
  * /api/v1/admin/orders:
  *   get:
  *     summary: List all orders
@@ -252,11 +315,22 @@ adminRouter.get('/stats', rbac(['admin','superadmin','dispatcher']), asyncHandle
  *       200:
  *         description: List of orders
  */
-adminRouter.get('/orders', rbac(['admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
+adminRouter.get('/orders', rbac(['admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const status = (req.query as any).status;
   const where: any = {};
   if (status && status !== 'all') where.status = status;
   
+  // If agent, filter by managed restaurants
+  if (user.role === 'agent') {
+    const agent = await prisma.user.findUnique({ 
+      where: { id: user.id },
+      include: { managedRestaurants: { select: { id: true } } }
+    });
+    const managedIds = agent?.managedRestaurants.map(r => r.id) || [];
+    where.restaurantId = { in: managedIds };
+  }
+
   const list = await prisma.order.findMany({ 
     where, 
     orderBy: { createdAt: 'desc' },

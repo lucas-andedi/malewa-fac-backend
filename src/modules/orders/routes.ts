@@ -128,12 +128,20 @@ ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin
  *       200:
  *         description: Order confirmed
  */
-ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
+ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
+  const user = (req as any).user;
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid order id' } });
   
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return res.status(404).json({ error: { message: 'Order not found' } });
+
+  // Check agent permission
+  if (user.role === 'agent') {
+    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
+    const manages = agent?.managedRestaurants.some(r => r.id === order.restaurantId);
+    if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
   
   if (order.status !== 'pending_confirmation') {
     return res.status(400).json({ error: { message: 'Order is not pending confirmation' } });
@@ -200,13 +208,21 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin']), asy
  *       200:
  *         description: Status updated
  */
-ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatcher','courier']), asyncHandler(async (req: Request, res: Response) => {
+ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatcher','courier','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
+  const user = (req as any).user;
   const { status } = req.body as { status: 'received'|'preparing'|'ready'|'delivering'|'delivered'|'rejected' };
   if (isNaN(id) || !status) return res.status(400).json({ error: { message: 'Invalid payload' } });
   
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return res.status(404).json({ error: { message: 'Order not found' } });
+
+  // Check agent permission
+  if (user.role === 'agent') {
+    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
+    const manages = agent?.managedRestaurants.some(r => r.id === order.restaurantId);
+    if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
   
   const allowed: Record<string, string[]> = {
     pending_confirmation: ['received', 'rejected'], // Dispatcher can reject too
@@ -277,11 +293,20 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
  *       201:
  *         description: Mission created
  */
-ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
+ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
+  const user = (req as any).user;
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid order id' } });
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return res.status(404).json({ error: { message: 'Order not found' } });
+
+  // Check agent permission
+  if (user.role === 'agent') {
+    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
+    const manages = agent?.managedRestaurants.some(r => r.id === order.restaurantId);
+    if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
+
   if (order.status !== 'ready') return res.status(400).json({ error: { message: 'Order must be ready to assign mission' } });
   const resto = await prisma.restaurant.findUnique({ where: { id: order.restaurantId } });
   if (!resto) return res.status(400).json({ error: { message: 'Restaurant missing' } });

@@ -16,6 +16,7 @@ enum UserRole {
   admin
   superadmin
   dispatcher
+  agent
 }
 
 enum UserStatus {
@@ -88,6 +89,7 @@ model User {
   otp            String?
   otpExpiresAt   DateTime?
   restaurants    Restaurant[] @relation("RestaurantOwner")
+  managedRestaurants Restaurant[] @relation("RestaurantAgents")
   orders         Order[]      @relation("OrderCustomer")
   missions       DeliveryMission[] @relation("MissionCourier")
   notifications  Notification[]
@@ -114,13 +116,27 @@ model Restaurant {
   institutionLinks   RestaurantInstitution[]
   ownerUserId        Int?
   owner              User?      @relation("RestaurantOwner", fields: [ownerUserId], references: [id])
+  agents             User[]     @relation("RestaurantAgents")
   rating             Decimal?   @db.Decimal(3, 2)
   deliveryFeeCampus  Int        @default(1500)
   photoUrl           String?
   createdAt          DateTime   @default(now())
   dishes             Dish[]
+  categories         DishCategory[]
   orders             Order[]
   missions           DeliveryMission[]
+}
+
+model DishCategory {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  name         String
+  displayOrder Int        @default(0)
+  createdAt    DateTime   @default(now())
+  dishes       Dish[]
+
+  @@unique([restaurantId, name])
 }
 
 model RestaurantInstitution {
@@ -142,10 +158,24 @@ model Dish {
   price        Int
   photoUrl     String?
   available    Boolean    @default(true)
+  categoryId   Int?
+  category     DishCategory? @relation(fields: [categoryId], references: [id])
+  isFlexiblePrice Boolean @default(false)
+  minPrice     Int?     @default(0)
+  options      DishOption[]
   createdAt    DateTime   @default(now())
   orderItems   OrderItem[]
 
   @@unique([restaurantId, name])
+}
+
+model DishOption {
+  id        Int     @id @default(autoincrement())
+  dishId    Int
+  dish      Dish    @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  name      String
+  price     Int
+  isMandatory Boolean @default(false)
 }
 
 model Order {
@@ -184,6 +214,15 @@ model OrderItem {
   price       Int
   customPrice Int?
   qty         Int
+  options     OrderItemOption[]
+}
+
+model OrderItemOption {
+  id          Int       @id @default(autoincrement())
+  orderItemId Int
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  name        String
+  price       Int
 }
 
 model DeliveryMission {
