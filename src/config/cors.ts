@@ -4,7 +4,10 @@ import { logger } from './logger';
 
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const allowedOrigins = env.corsOrigin.split(',').map(o => o.trim());
+    const staticAllowed = ['https://malewa-fac.com', 'https://www.malewa-fac.com'];
+    const envAllowed = env.corsOrigin.split(',').map(o => o.trim());
+    const allowedOrigins = [...new Set([...staticAllowed, ...envAllowed])];
+
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
