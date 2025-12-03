@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../../utils/http';
 import { validate } from '../../middlewares/validate';
 import { CreateOrderSchema } from './dto';
@@ -16,46 +17,46 @@ export const ordersRouter = Router();
 /**
  * @swagger
  * /api/v1/orders:
- *   post:
- *     summary: Create a new order
- *     tags: [Orders]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [restaurantId, items, customerUserId]
- *             properties:
- *               restaurantId:
- *                 type: integer
- *               customerName:
- *                 type: string
- *               customerUserId:
- *                 type: integer
- *               items:
- *                 type: array
- *                 items:
- *                   type: object
- *                   required: [dishId, qty]
- *                   properties:
- *                     dishId:
- *                       type: integer
- *                     qty:
- *                       type: integer
- *               deliveryMethod:
- *                 type: string
- *                 enum: [campus, offcampus, pickup]
- *               paymentMethod:
- *                 type: string
- *                 enum: [mobile, card, cash]
- *               address:
- *                 type: string
- *     responses:
- *       201:
- *         description: Order created
+ * post:
+ * summary: Create a new order
+ * tags: [Orders]
+ * security:
+ * - bearerAuth: []
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * required: [restaurantId, items, customerUserId]
+ * properties:
+ * restaurantId:
+ * type: integer
+ * customerName:
+ * type: string
+ * customerUserId:
+ * type: integer
+ * items:
+ * type: array
+ * items:
+ * type: object
+ * required: [dishId, qty]
+ * properties:
+ * dishId:
+ * type: integer
+ * qty:
+ * type: integer
+ * deliveryMethod:
+ * type: string
+ * enum: [campus, offcampus, pickup]
+ * paymentMethod:
+ * type: string
+ * enum: [mobile, card, cash]
+ * address:
+ * type: string
+ * responses:
+ * 201:
+ * description: Order created
  */
 ordersRouter.post('/', validate(CreateOrderSchema), asyncHandler(async (req: Request, res: Response) => {
   const order = await createOrder(req.body as any);
@@ -65,14 +66,14 @@ ordersRouter.post('/', validate(CreateOrderSchema), asyncHandler(async (req: Req
 /**
  * @swagger
  * /api/v1/orders/me:
- *   get:
- *     summary: Get my orders
- *     tags: [Orders]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of orders
+ * get:
+ * summary: Get my orders
+ * tags: [Orders]
+ * security:
+ * - bearerAuth: []
+ * responses:
+ * 200:
+ * description: List of orders
  */
 ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number; role: string };
@@ -87,20 +88,20 @@ ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin'
 /**
  * @swagger
  * /api/v1/orders/{id}:
- *   get:
- *     summary: Get order details
- *     tags: [Orders]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Order details
+ * get:
+ * summary: Get order details
+ * tags: [Orders]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 200:
+ * description: Order details
  */
 ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -113,20 +114,20 @@ ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin
 /**
  * @swagger
  * /api/v1/orders/{id}/confirm:
- *   post:
- *     summary: Confirm an order (dispatcher/admin)
- *     tags: [Orders]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Order confirmed
+ * post:
+ * summary: Confirm an order (dispatcher/admin)
+ * tags: [Orders]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 200:
+ * description: Order confirmed
  */
 ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -139,7 +140,7 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent
   // Check agent permission
   if (user.role === 'agent') {
     const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
-    const manages = agent?.managedRestaurants.some(r => r.id === order.restaurantId);
+    const manages = agent?.managedRestaurants.some((r: { id: number }) => r.id === order.restaurantId);
     if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
   }
   
@@ -173,7 +174,7 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent
       }
     }
   } catch (e) {
-    logger.error({ err: e }, 'Failed to notify merchant here ');
+    logger.error({ err: e }, 'Failed to notify merchant'); // CONFLICT RESOLVED
   }
 
   res.json(updated);
@@ -182,31 +183,31 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent
 /**
  * @swagger
  * /api/v1/orders/{id}/status:
- *   patch:
- *     summary: Update order status
- *     tags: [Orders]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [status]
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [received, preparing, ready, delivering, delivered, rejected]
- *     responses:
- *       200:
- *         description: Status updated
+ * patch:
+ * summary: Update order status
+ * tags: [Orders]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * required: [status]
+ * properties:
+ * status:
+ * type: string
+ * enum: [received, preparing, ready, delivering, delivered, rejected]
+ * responses:
+ * 200:
+ * description: Status updated
  */
 ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatcher','courier','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -220,7 +221,7 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
   // Check agent permission
   if (user.role === 'agent') {
     const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
-    const manages = agent?.managedRestaurants.some(r => r.id === order.restaurantId);
+    const manages = agent?.managedRestaurants.some((r: { id: number }) => r.id === order.restaurantId);
     if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
   }
   
@@ -246,7 +247,7 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
     const labels: Record<string, string> = {
       received: 'Reçue', preparing: 'En préparation', ready: 'Prête', delivering: 'En cours de livraison', delivered: 'Livrée', rejected: 'Rejetée'
     } as const as any;
-    
+  
     // Notify Customer
     await notify(updated.customerUserId, {
       type: 'order.status',
@@ -278,20 +279,20 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
 /**
  * @swagger
  * /api/v1/orders/{id}/assign-mission:
- *   post:
- *     summary: Assign delivery mission for order
- *     tags: [Orders]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       201:
- *         description: Mission created
+ * post:
+ * summary: Assign delivery mission for order
+ * tags: [Orders]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: integer
+ * responses:
+ * 201:
+ * description: Mission created
  */
 ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -303,7 +304,7 @@ ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','
   // Check agent permission
   if (user.role === 'agent') {
     const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
-    const manages = agent?.managedRestaurants.some(r => r.id === order.restaurantId);
+    const manages = agent?.managedRestaurants.some((r: { id: number }) => r.id === order.restaurantId);
     if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
   }
 
@@ -341,7 +342,7 @@ ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','
       message: `Un coursier va récupérer votre commande ${order.code}.`,
       data: { orderId: order.id }
     });
-    
+  
     // SMS to Couriers "Available mission"
     // Notify all couriers? That might be too many SMS.
     // "Pour le livreur s’il y a une nouvelle course disponible."
@@ -350,13 +351,13 @@ ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','
     // Warning: Costly if many couriers. But requirement says so.
     const couriers = await prisma.user.findMany({ where: { role: 'courier', status: 'active' } });
     for (const c of couriers) {
-        if (c.phone) {
-            // Maybe check if they are 'online'? We don't track online status perfectly yet, just 'active' account.
-            // For now, send to all active couriers.
-            // Limit to maybe 5 nearest? We don't have geo yet.
-            // Let's send to first 5 to avoid spamming everyone? Or just send.
-            await smsService.sendSms(c.phone, `Malewa-Fac: Nouvelle course disponible chez ${resto.name}. Gain: ${mission.earning} FC.`);
-        }
+      if (c.phone) {
+        // Maybe check if they are 'online'? We don't track online status perfectly yet, just 'active' account.
+        // For now, send to all active couriers.
+        // Limit to maybe 5 nearest? We don't have geo yet.
+        // Let's send to first 5 to avoid spamming everyone? Or just send.
+        await smsService.sendSms(c.phone, `Malewa-Fac: Nouvelle course disponible chez ${resto.name}. Gain: ${mission.earning} FC.`);
+      }
     }
 
   } catch {}

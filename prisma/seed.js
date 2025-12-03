@@ -36,10 +36,11 @@ async function main() {
         update: { passwordHash, status: 'active' },
         create: { name: 'Demo Courier', email: 'courier@demo.local', role: 'courier', status: 'active', passwordHash },
     });
+    // RESOLVED CONFLICT: Taking 'superadmin' role from remote
     await prisma.user.upsert({
         where: { email: 'admin@demo.local' },
-        update: { passwordHash, status: 'active' },
-        create: { name: 'Admin', email: 'admin@demo.local', role: 'admin', status: 'active', passwordHash },
+        update: { passwordHash, status: 'active', role: 'superadmin' },
+        create: { name: 'Super Admin', email: 'admin@demo.local', role: 'superadmin', status: 'active', passwordHash },
     });
     // Restaurants
     const r1 = await prisma.restaurant.upsert({
