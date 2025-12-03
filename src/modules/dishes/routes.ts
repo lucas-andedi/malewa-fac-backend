@@ -52,7 +52,7 @@ dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('
   if (user.role === 'merchant' && dish.restaurant.ownerUserId && dish.restaurant.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
 
   // Extract fields from body (multipart/form-data implies strings)
-  const { name, description, available } = req.body as { name?: string; description?: string; available?: string|boolean };
+  const { name, description, available, categoryId } = req.body as { name?: string; description?: string; available?: string|boolean; categoryId?: string|number };
   
   let price: number | undefined;
   if (req.body.price) {
@@ -66,6 +66,7 @@ dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('
   }
 
   const availableBool = available === 'true' || available === true ? true : (available === 'false' || available === false ? false : undefined);
+  const catId = categoryId ? Number(categoryId) : undefined;
 
   const updated = await prisma.dish.update({ 
     where: { id }, 
@@ -74,7 +75,8 @@ dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('
       description, 
       price, 
       available: availableBool, 
-      photoUrl 
+      photoUrl,
+      categoryId: catId
     } 
   });
   res.json(updated);

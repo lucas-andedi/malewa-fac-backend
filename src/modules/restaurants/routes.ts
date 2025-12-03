@@ -89,6 +89,16 @@ restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddl
     include: { institutionLinks: { include: { institution: true } } }
   });
   
+  // Seed default categories
+  await prisma.dishCategory.createMany({
+    data: [
+      { restaurantId: created.id, name: 'Plats Principaux', displayOrder: 0 },
+      { restaurantId: created.id, name: 'Accompagnements', displayOrder: 1 },
+      { restaurantId: created.id, name: 'Sauces', displayOrder: 2 },
+      { restaurantId: created.id, name: 'Boissons', displayOrder: 3 }
+    ]
+  });
+  
   const response = {
     ...created,
     institutions: created.institutionLinks.map(l => l.institution),
@@ -256,13 +266,18 @@ restaurantsRouter.get('/', asyncHandler(async (req: Request, res: Response) => {
       ]
     },
     orderBy: { name: 'asc' },
-    include: { institutionLinks: { include: { institution: true } } }
+    include: { 
+      institutionLinks: { include: { institution: true } },
+      owner: { select: { name: true } }
+    }
   });
   
   const response = list.map(r => ({
     ...r,
+    ownerName: r.owner?.name,
     institutions: r.institutionLinks.map(l => l.institution),
-    institutionLinks: undefined
+    institutionLinks: undefined,
+    owner: undefined
   }));
   res.json(response);
 }));
@@ -288,14 +303,19 @@ restaurantsRouter.get('/:id', asyncHandler(async (req: Request, res: Response) =
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
   const resto = await prisma.restaurant.findUnique({ 
     where: { id },
-    include: { institutionLinks: { include: { institution: true } } } 
+    include: { 
+      institutionLinks: { include: { institution: true } },
+      owner: { select: { name: true } }
+    } 
   });
   if (!resto) return res.status(404).json({ error: { message: 'Restaurant not found' } });
   
   const response = {
     ...resto,
+    ownerName: resto.owner?.name,
     institutions: resto.institutionLinks.map(l => l.institution),
-    institutionLinks: undefined
+    institutionLinks: undefined,
+    owner: undefined
   };
   res.json(response);
 }));
@@ -418,7 +438,7 @@ restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin','superadmin']), u
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
   
-  const { name, description, price, available } = req.body as { name: string; description?: string; price: string|number; available?: string|boolean };
+  const { name, description, price, available, categoryId } = req.body as { name: string; description?: string; price: string|number; available?: string|boolean; categoryId?: string|number };
   
   // Convert price to number (since multipart/form-data sends strings)
   const priceNum = Number(price);
@@ -444,7 +464,8 @@ restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin','superadmin']), u
       description: description || 'Nouveau plat', 
       price: priceNum, 
       available: available === 'true' || available === true, 
-      photoUrl 
+      photoUrl,
+      categoryId: categoryId ? Number(categoryId) : undefined
     } 
   });
   res.status(201).json(created);
@@ -475,6 +496,9 @@ restaurantsRouter.get('/:id/dishes', asyncHandler(async (req: Request, res: Resp
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
   const all = String((req.query as any).all || '').toLowerCase() === 'true';
+  
+  const include = { category: true };
+
   if (all) {
     const user = (req as any).user as { id: number; role: string } | undefined;
     if (!user || (user.role !== 'merchant' && user.role !== 'admin')) {
@@ -485,10 +509,155 @@ restaurantsRouter.get('/:id/dishes', asyncHandler(async (req: Request, res: Resp
       if (!resto) return res.status(404).json({ error: { message: 'Restaurant not found' } });
       if (resto.ownerUserId && resto.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
     }
-    const allDishes = await prisma.dish.findMany({ where: { restaurantId: id }, orderBy: { name: 'asc' } });
+    const allDishes = await prisma.dish.findMany({ where: { restaurantId: id }, orderBy: { name: 'asc' }, include });
     return res.json(allDishes);
   }
-  const available = await prisma.dish.findMany({ where: { restaurantId: id, available: true }, orderBy: { name: 'asc' } });
+  const available = await prisma.dish.findMany({ where: { restaurantId: id, available: true }, orderBy: { name: 'asc' }, include });
   res.json(available);
+}));
+
+
+// Categories Management
+
+/**
+ * @swagger
+ * /api/v1/restaurants/{id}/categories:
+ *   get:
+ *     summary: Get restaurant categories
+ *     tags: [Restaurants]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of categories
+ */
+restaurantsRouter.get('/:id/categories', asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
+  const list = await prisma.dishCategory.findMany({
+    where: { restaurantId: id },
+    orderBy: { displayOrder: 'asc' }
+  });
+  res.json(list);
+}));
+
+/**
+ * @swagger
+ * /api/v1/restaurants/{id}/categories:
+ *   post:
+ *     summary: Create category
+ *     tags: [Restaurants]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               displayOrder:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Category created
+ */
+restaurantsRouter.post('/:id/categories', rbac(['merchant','admin']), asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const { name, displayOrder } = req.body;
+  
+  // Check ownership
+  const user = (req as any).user;
+  if (user.role === 'merchant') {
+     const r = await prisma.restaurant.findUnique({ where: { id } });
+     if (r?.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
+
+  const created = await prisma.dishCategory.create({
+    data: { restaurantId: id, name, displayOrder: Number(displayOrder||0) }
+  });
+  res.status(201).json(created);
+}));
+
+/**
+ * @swagger
+ * /api/v1/restaurants/{id}/categories/reorder:
+ *   patch:
+ *     summary: Reorder categories
+ *     tags: [Restaurants]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [orders]
+ *             properties:
+ *               orders:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     order:
+ *                       type: integer
+ *     responses:
+ *       200:
+ *         description: Categories reordered
+ */
+restaurantsRouter.patch('/:id/categories/reorder', rbac(['merchant','admin']), asyncHandler(async (req: Request, res: Response) => {
+   const id = Number(req.params.id);
+   const { orders } = req.body as { orders: { id: number; order: number }[] };
+   
+   const user = (req as any).user;
+   if (user.role === 'merchant') {
+      const r = await prisma.restaurant.findUnique({ where: { id } });
+      if (r?.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
+   }
+
+   await prisma.$transaction(
+     orders.map(o => prisma.dishCategory.update({
+       where: { id: o.id },
+       data: { displayOrder: o.order }
+     }))
+   );
+   res.json({ ok: true });
+}));
+
+/**
+ * @swagger
+ * /api/v1/restaurants/{id}/categories/{catId}:
+ *   delete:
+ *     summary: Delete category
+ *     tags: [Restaurants]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Category deleted
+ */
+restaurantsRouter.delete('/:id/categories/:catId', rbac(['merchant','admin']), asyncHandler(async (req: Request, res: Response) => {
+   const id = Number(req.params.id);
+   const catId = Number(req.params.catId);
+   
+   const user = (req as any).user;
+   if (user.role === 'merchant') {
+      const r = await prisma.restaurant.findUnique({ where: { id } });
+      if (r?.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
+   }
+
+   // Check if dishes exist? Maybe allow delete and set categoryId null?
+   // For now, set null
+   await prisma.dish.updateMany({ where: { categoryId: catId }, data: { categoryId: null } });
+   await prisma.dishCategory.delete({ where: { id: catId } });
+   res.json({ ok: true });
 }));
 
