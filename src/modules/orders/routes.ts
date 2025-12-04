@@ -17,46 +17,46 @@ export const ordersRouter = Router();
 /**
  * @swagger
  * /api/v1/orders:
- * post:
- * summary: Create a new order
- * tags: [Orders]
- * security:
- * - bearerAuth: []
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required: [restaurantId, items, customerUserId]
- * properties:
- * restaurantId:
- * type: integer
- * customerName:
- * type: string
- * customerUserId:
- * type: integer
- * items:
- * type: array
- * items:
- * type: object
- * required: [dishId, qty]
- * properties:
- * dishId:
- * type: integer
- * qty:
- * type: integer
- * deliveryMethod:
- * type: string
- * enum: [campus, offcampus, pickup]
- * paymentMethod:
- * type: string
- * enum: [mobile, card, cash]
- * address:
- * type: string
- * responses:
- * 201:
- * description: Order created
+ *   post:
+ *     summary: Create a new order
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [restaurantId, items, customerUserId]
+ *             properties:
+ *               restaurantId:
+ *                 type: integer
+ *               customerName:
+ *                 type: string
+ *               customerUserId:
+ *                 type: integer
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [dishId, qty]
+ *                   properties:
+ *                     dishId:
+ *                       type: integer
+ *                     qty:
+ *                       type: integer
+ *               deliveryMethod:
+ *                 type: string
+ *                 enum: [campus, offcampus, pickup]
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [mobile, card, cash]
+ *               address:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Order created
  */
 ordersRouter.post('/', validate(CreateOrderSchema), asyncHandler(async (req: Request, res: Response) => {
   const order = await createOrder(req.body as any);
@@ -66,14 +66,14 @@ ordersRouter.post('/', validate(CreateOrderSchema), asyncHandler(async (req: Req
 /**
  * @swagger
  * /api/v1/orders/me:
- * get:
- * summary: Get my orders
- * tags: [Orders]
- * security:
- * - bearerAuth: []
- * responses:
- * 200:
- * description: List of orders
+ *   get:
+ *     summary: Get my orders
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of orders
  */
 ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number; role: string };
@@ -88,20 +88,20 @@ ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin'
 /**
  * @swagger
  * /api/v1/orders/{id}:
- * get:
- * summary: Get order details
- * tags: [Orders]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: integer
- * responses:
- * 200:
- * description: Order details
+ *   get:
+ *     summary: Get order details
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Order details
  */
 ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -114,20 +114,20 @@ ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin
 /**
  * @swagger
  * /api/v1/orders/{id}/confirm:
- * post:
- * summary: Confirm an order (dispatcher/admin)
- * tags: [Orders]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: integer
- * responses:
- * 200:
- * description: Order confirmed
+ *   post:
+ *     summary: Confirm an order (dispatcher/admin)
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Order confirmed
  */
 ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -183,31 +183,31 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent
 /**
  * @swagger
  * /api/v1/orders/{id}/status:
- * patch:
- * summary: Update order status
- * tags: [Orders]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: integer
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required: [status]
- * properties:
- * status:
- * type: string
- * enum: [received, preparing, ready, delivering, delivered, rejected]
- * responses:
- * 200:
- * description: Status updated
+ *   patch:
+ *     summary: Update order status
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [received, preparing, ready, delivering, delivered, rejected]
+ *     responses:
+ *       200:
+ *         description: Status updated
  */
 ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatcher','courier','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -279,20 +279,20 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
 /**
  * @swagger
  * /api/v1/orders/{id}/assign-mission:
- * post:
- * summary: Assign delivery mission for order
- * tags: [Orders]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: integer
- * responses:
- * 201:
- * description: Mission created
+ *   post:
+ *     summary: Assign delivery mission for order
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       201:
+ *         description: Mission created
  */
 ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
