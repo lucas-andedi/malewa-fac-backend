@@ -195,9 +195,9 @@ paymentsRouter.post('/intent', asyncHandler(async (req: Request, res: Response) 
         customer_number: phoneNumber,
         reference: `ORD-${order.code}`,
         method: provider, // let mokoService detect if not provided
-        firstname: order.customer.name.split(' ')[0],
-        lastname: order.customer.name.split(' ')[1] || '',
-        email: order.customer.email || undefined
+        firstname: 'Idolo',
+        lastname: 'Technologie',
+        email: 'joellucasandedi@gmail.com'
     });
 
     return res.status(201).json({ 
@@ -299,9 +299,9 @@ paymentsRouter.post('/mobile/initiate', asyncHandler(async (req: Request, res: R
         customer_number: targetPhone,
         reference: `ORD-${order.code}`,
         method: provider,
-        firstname: order.customer.name.split(' ')[0],
-        lastname: order.customer.name.split(' ')[1] || '',
-        email: order.customer.email || undefined
+        firstname: 'Idolo',
+        lastname: 'Technologie',
+        email: 'joellucasandedi@gmail.com'
     });
 
     return res.status(201).json({ 

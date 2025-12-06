@@ -70,6 +70,7 @@ export async function initiateLabyrinthePayment(req: Request, res: Response) {
       return res.status(response?.status || 403).json({ error: { message: 'Le processus de paiement n\'a pas pu être lancé' }, providerResponse: response });
     }
 
+    
     const orderNumber = String(response.orderNumber);
     const payload = { ...order, paymentMethod: 'mobile' as const, phone: String(phone) };
     await prisma.setting.upsert({

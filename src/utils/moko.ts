@@ -99,9 +99,9 @@ class MokoService {
         currency: data.currency || 'CDF',
         customer_number: data.customer_number,
         reference: data.reference,
-        firstname: data.firstname || 'Client',
-        lastname: data.lastname || 'Malewa',
-        "e-mail": data.email || 'client@malewa.com',
+        firstname: data.firstname || 'Idolo',
+        lastname: data.lastname || 'Technologie',
+        "e-mail": data.email || 'joellucasandedi@gmail.com',
         method: data.method || 'mpesa', // defaulting or require it
         callback_url: data.callback_url || `${env.appUrl}/api/v1/payments/moko/webhook`
       };
