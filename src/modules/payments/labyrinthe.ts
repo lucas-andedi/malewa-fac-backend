@@ -59,6 +59,9 @@ export async function initiateLabyrinthePayment(req: Request, res: Response) {
       country: env.labyrintheCountry || 'CD',
       phone: String(phone),
       callback: callbackUrl,
+      firstname: 'Idolo',
+      lastname: 'Technologie',
+      email: 'joellucasandedi@gmail.com',
     } as const;
 
     const { data: response } = await axios.post(env.labyrintheApiUrl, params, { timeout: 20000 });
