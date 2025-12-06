@@ -7,7 +7,7 @@ export const env = {
   databaseUrl: process.env.DATABASE_URL || 'mysql://root:root@localhost:3306/malewa_fac',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET || 'dev_secret',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   refreshJwtSecret: process.env.REFRESH_JWT_SECRET || 'dev_refresh_secret',
   refreshExpiresIn: process.env.REFRESH_EXPIRES_IN || '7d',
   logLevel: (process.env.LOG_LEVEL || 'info') as 'fatal'|'error'|'warn'|'info'|'debug'|'trace',

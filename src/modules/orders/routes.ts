@@ -139,8 +139,8 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent
 
   // Check agent permission
   if (user.role === 'agent') {
-    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
-    const manages = (agent as any)?.managedRestaurants?.some((r: { id: number }) => r.id === order.restaurantId);
+    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { restaurantId: true } } } });
+    const manages = (agent as any)?.managedRestaurants?.some((r: { restaurantId: number }) => r.restaurantId === order.restaurantId);
     if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
   }
   
@@ -220,8 +220,8 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
 
   // Check agent permission
   if (user.role === 'agent') {
-    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
-    const manages = (agent as any)?.managedRestaurants?.some((r: { id: number }) => r.id === order.restaurantId);
+    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { restaurantId: true } } } });
+    const manages = (agent as any)?.managedRestaurants?.some((r: { restaurantId: number }) => r.restaurantId === order.restaurantId);
     if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
   }
   
@@ -303,8 +303,8 @@ ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','
 
   // Check agent permission
   if (user.role === 'agent') {
-    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { id: true } } } });
-    const manages = (agent as any)?.managedRestaurants?.some((r: { id: number }) => r.id === order.restaurantId);
+    const agent = await prisma.user.findUnique({ where: { id: user.id }, include: { managedRestaurants: { select: { restaurantId: true } } } });
+    const manages = (agent as any)?.managedRestaurants?.some((r: { restaurantId: number }) => r.restaurantId === order.restaurantId);
     if (!manages) return res.status(403).json({ error: { message: 'Forbidden' } });
   }
 

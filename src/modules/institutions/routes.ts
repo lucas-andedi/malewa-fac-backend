@@ -111,6 +111,20 @@ institutionsRouter.put('/:id', rbac(['admin','superadmin']), asyncHandler(async 
  */
 institutionsRouter.delete('/:id', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  await prisma.institution.delete({ where: { id } });
+  
+  // Check if institution exists
+  const exists = await prisma.institution.findUnique({ where: { id } });
+  if (!exists) return res.status(404).json({ error: { message: 'Institution not found' } });
+
+  // Transaction to clean up dependencies
+  await prisma.$transaction([
+    // Remove links to restaurants
+    prisma.restaurantInstitution.deleteMany({ where: { institutionId: id } }),
+    // Unlink users (set institutionId to null)
+    prisma.user.updateMany({ where: { institutionId: id }, data: { institutionId: null } }),
+    // Finally delete the institution
+    prisma.institution.delete({ where: { id } })
+  ]);
+  
   res.json({ success: true });
 }));

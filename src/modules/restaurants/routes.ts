@@ -79,7 +79,7 @@ restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddl
       description,
       status,
       ownerUserId,
-      deliveryFeeCampus: deliveryFeeCampus ? Number(deliveryFeeCampus) : 1500,
+      deliveryFeeCampus: deliveryFeeCampus ? Number(deliveryFeeCampus) : 1000,
       code: name.substring(0,3).toUpperCase() + Math.floor(Math.random()*1000),
       photoUrl,
       institutionLinks: {
@@ -95,9 +95,29 @@ restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddl
       { restaurantId: created.id, name: 'Plats Principaux', displayOrder: 0 },
       { restaurantId: created.id, name: 'Accompagnements', displayOrder: 1 },
       { restaurantId: created.id, name: 'Sauces', displayOrder: 2 },
-      { restaurantId: created.id, name: 'Boissons', displayOrder: 3 }
+      { restaurantId: created.id, name: 'Boissons', displayOrder: 3 },
+      { restaurantId: created.id, name: 'Accessoires', displayOrder: 4 }
     ]
   });
+
+  // Create default mandatory Assiette
+  const accessoriesCat = await prisma.dishCategory.findFirst({
+    where: { restaurantId: created.id, name: 'Accessoires' }
+  });
+  
+  if (accessoriesCat) {
+    await prisma.dish.create({
+      data: {
+        restaurantId: created.id,
+        name: 'Assiette',
+        description: 'Assiette jetable obligatoire',
+        price: 1000,
+        available: true,
+        categoryId: accessoriesCat.id,
+        isMandatory: true
+      }
+    });
+  }
   
   const response = {
     ...created,
@@ -438,7 +458,7 @@ restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin','superadmin']), u
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
   
-  const { name, description, price, available, categoryId } = req.body as { name: string; description?: string; price: string|number; available?: string|boolean; categoryId?: string|number };
+  const { name, description, price, available, categoryId, isMandatory } = req.body as { name: string; description?: string; price: string|number; available?: string|boolean; categoryId?: string|number; isMandatory?: string|boolean };
   
   // Convert price to number (since multipart/form-data sends strings)
   const priceNum = Number(price);
@@ -465,7 +485,8 @@ restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin','superadmin']), u
       price: priceNum, 
       available: available === 'true' || available === true, 
       photoUrl,
-      categoryId: categoryId ? Number(categoryId) : undefined
+      categoryId: categoryId ? Number(categoryId) : undefined,
+      isMandatory: isMandatory === 'true' || isMandatory === true
     } 
   });
   res.status(201).json(created);

@@ -89,7 +89,7 @@ model User {
   otp            String?
   otpExpiresAt   DateTime?
   restaurants    Restaurant[] @relation("RestaurantOwner")
-  managedRestaurants Restaurant[] @relation("RestaurantAgents")
+  managedRestaurants RestaurantAgent[]
   orders         Order[]      @relation("OrderCustomer")
   missions       DeliveryMission[] @relation("MissionCourier")
   notifications  Notification[]
@@ -116,15 +116,25 @@ model Restaurant {
   institutionLinks   RestaurantInstitution[]
   ownerUserId        Int?
   owner              User?      @relation("RestaurantOwner", fields: [ownerUserId], references: [id])
-  agents             User[]     @relation("RestaurantAgents")
+  agents             RestaurantAgent[]
   rating             Decimal?   @db.Decimal(3, 2)
-  deliveryFeeCampus  Int        @default(1500)
+  deliveryFeeCampus  Int        @default(1000)
   photoUrl           String?
   createdAt          DateTime   @default(now())
   dishes             Dish[]
   categories         DishCategory[]
   orders             Order[]
   missions           DeliveryMission[]
+}
+
+model RestaurantAgent {
+  id           Int        @id @default(autoincrement())
+  userId       Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
 }
 
 model DishCategory {
@@ -161,6 +171,7 @@ model Dish {
   categoryId   Int?
   category     DishCategory? @relation(fields: [categoryId], references: [id])
   isFlexiblePrice Boolean @default(false)
+  isMandatory  Boolean    @default(false)
   minPrice     Int?     @default(0)
   options      DishOption[]
   createdAt    DateTime   @default(now())

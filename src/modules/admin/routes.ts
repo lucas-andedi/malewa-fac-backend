@@ -39,10 +39,22 @@ adminRouter.get('/users', rbac(['admin','superadmin']), asyncHandler(async (req:
     where, 
     orderBy: { id: 'desc' },
     include: {
-      managedRestaurants: { select: { id: true, name: true } }
+      managedRestaurants: { 
+        include: { restaurant: { select: { id: true, name: true } } } 
+      }
     }
   });
-  res.json(users);
+  // Transform response to flatten structure if needed, or frontend adapts.
+  // Let's keep it simple but readable for frontend: map to previous structure?
+  // Previous: managedRestaurants: [{ id, name }]
+  // New: managedRestaurants: [{ restaurant: { id, name } }]
+  // Let's map it to preserve backward compatibility if possible, or just update frontend.
+  // Ideally update frontend, but for now let's map it here to avoid breaking frontend immediately.
+  const mapped = users.map(u => ({
+    ...u,
+    managedRestaurants: u.managedRestaurants.map((r: any) => r.restaurant)
+  }));
+  res.json(mapped);
 }));
 
 /**
@@ -285,17 +297,29 @@ adminRouter.put('/agents/:id/restaurants', rbac(['superadmin']), asyncHandler(as
     return res.status(400).json({ error: { message: 'User not found or not an agent' } });
   }
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data: {
-      managedRestaurants: {
-        set: restaurantIds.map((rid: number) => ({ id: rid }))
-      }
-    },
-    include: { managedRestaurants: true }
-  });
+  // Transaction: Delete existing, create new
+  await prisma.$transaction([
+    prisma.restaurantAgent.deleteMany({ where: { userId: id } }),
+    prisma.restaurantAgent.createMany({
+      data: restaurantIds.map((rid: number) => ({ userId: id, restaurantId: rid }))
+    })
+  ]);
 
-  res.json(updated);
+  const updated = await prisma.user.findUnique({
+    where: { id },
+    include: { 
+      managedRestaurants: { 
+        include: { restaurant: true } 
+      } 
+    }
+  });
+  // Map for backward compatibility if needed, or just return updated
+  const mapped = {
+    ...updated,
+    managedRestaurants: updated?.managedRestaurants.map((r: any) => r.restaurant) || []
+  };
+
+  res.json(mapped);
 }));
 
 /**
@@ -325,9 +349,9 @@ adminRouter.get('/orders', rbac(['admin','superadmin','dispatcher','agent']), as
   if (user.role === 'agent') {
     const agent = await prisma.user.findUnique({ 
       where: { id: user.id },
-      include: { managedRestaurants: { select: { id: true } } }
+      include: { managedRestaurants: { select: { restaurantId: true } } }
     });
-    const managedIds = agent?.managedRestaurants.map(r => r.id) || [];
+    const managedIds = (agent as any)?.managedRestaurants.map((r: { restaurantId: number }) => r.restaurantId) || [];
     where.restaurantId = { in: managedIds };
   }
 
