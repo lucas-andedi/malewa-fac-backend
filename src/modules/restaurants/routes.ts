@@ -411,7 +411,10 @@ restaurantsRouter.get('/:id/orders', rbac(['merchant','admin','superadmin']), as
     if (resto.ownerUserId && resto.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
   }
   const orders = await prisma.order.findMany({
-    where: { restaurantId: id },
+    where: { 
+      restaurantId: id,
+      status: { not: 'pending_confirmation' } // Hide unconfirmed orders from restaurant
+    },
     orderBy: { createdAt: 'desc' },
     include: { items: true }
   });

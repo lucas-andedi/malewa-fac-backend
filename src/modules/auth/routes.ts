@@ -292,8 +292,20 @@ authRouter.post('/refresh', validate(RefreshSchema), asyncHandler(async (req: Re
 authRouter.get('/me', asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user;
   if (!user) return res.status(401).json({ error: { message: 'Unauthorized' } });
-  const u = await prisma.user.findUnique({ where: { id: user.id } });
-  res.json(u);
+  const u = await prisma.user.findUnique({ 
+    where: { id: user.id },
+    include: {
+      managedRestaurants: {
+        include: { restaurant: { select: { id: true, name: true, photoUrl: true, address: true } } }
+      }
+    }
+  });
+  // Flatten managedRestaurants structure
+  const response = {
+    ...u,
+    managedRestaurants: u?.managedRestaurants.map((r: any) => r.restaurant) || []
+  };
+  res.json(response);
 }));
 
 /**

@@ -353,6 +353,15 @@ adminRouter.get('/orders', rbac(['admin','superadmin','dispatcher','agent']), as
     });
     const managedIds = (agent as any)?.managedRestaurants.map((r: { restaurantId: number }) => r.restaurantId) || [];
     where.restaurantId = { in: managedIds };
+    // Also hide unconfirmed orders from agents
+    if (!where.status) {
+       where.status = { not: 'pending_confirmation' };
+    } else if (where.status !== 'pending_confirmation') {
+       // If user requested specific status, respect it, unless they asked for pending_confirmation (which they shouldn't see)
+       // But if they asked for 'all', line 346 handles it by not setting where.status.
+       // If status is 'all' (passed as query param but filtered out in line 346), where.status is undefined.
+       // So the check !where.status covers 'all' case.
+    }
   }
 
   const list = await prisma.order.findMany({ 
