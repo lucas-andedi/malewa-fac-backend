@@ -572,3 +572,53 @@ adminRouter.get('/finance/merchants', rbac(['admin','superadmin']), asyncHandler
 
   res.json(Object.values(stats));
 }));
+
+/**
+ * @swagger
+ * /api/v1/admin/settings:
+ *   get:
+ *     summary: Get system settings
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Settings object
+ */
+adminRouter.get('/settings', rbac(['admin','superadmin']), asyncHandler(async (_req: Request, res: Response) => {
+  const settings = await prisma.setting.findMany();
+  const result: Record<string, any> = {};
+  settings.forEach(s => result[s.skey] = s.svalue);
+  res.json(result);
+}));
+
+/**
+ * @swagger
+ * /api/v1/admin/settings:
+ *   put:
+ *     summary: Update system settings
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Settings updated
+ */
+adminRouter.put('/settings', rbac(['superadmin']), asyncHandler(async (req: Request, res: Response) => {
+  const updates = req.body as Record<string, any>;
+  const ops = Object.entries(updates).map(([key, value]) => 
+    prisma.setting.upsert({
+      where: { skey: key },
+      update: { svalue: String(value) },
+      create: { skey: key, svalue: String(value) }
+    })
+  );
+  await prisma.$transaction(ops);
+  res.json({ ok: true });
+}));

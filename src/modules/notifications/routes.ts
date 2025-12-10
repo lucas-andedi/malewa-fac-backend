@@ -6,7 +6,7 @@ import { rbac } from '../../middlewares/rbac';
 export const notificationsRouter = Router();
 
 // GET /api/v1/notifications?unreadOnly=true&limit=20
-notificationsRouter.get('/', rbac(['client','merchant','courier','admin']), asyncHandler(async (req: Request, res: Response) => {
+notificationsRouter.get('/', rbac(['client','merchant','courier','admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number };
   const unreadOnly = String((req.query as any).unreadOnly || 'false').toLowerCase() === 'true';
   const limit = Math.max(1, Math.min(100, Number((req.query as any).limit) || 20));
@@ -17,7 +17,7 @@ notificationsRouter.get('/', rbac(['client','merchant','courier','admin']), asyn
 }));
 
 // PATCH /api/v1/notifications/:id/read
-notificationsRouter.patch('/:id/read', rbac(['client','merchant','courier','admin']), asyncHandler(async (req: Request, res: Response) => {
+notificationsRouter.patch('/:id/read', rbac(['client','merchant','courier','admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number };
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'invalid id' } });
@@ -26,7 +26,7 @@ notificationsRouter.patch('/:id/read', rbac(['client','merchant','courier','admi
 }));
 
 // PATCH /api/v1/notifications/read-all
-notificationsRouter.patch('/read-all', rbac(['client','merchant','courier','admin']), asyncHandler(async (req: Request, res: Response) => {
+notificationsRouter.patch('/read-all', rbac(['client','merchant','courier','admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number };
   const updated = await prisma.notification.updateMany({ where: { userId: user.id, readAt: null }, data: { readAt: new Date() } });
   res.json({ ok: true, updated: updated.count });

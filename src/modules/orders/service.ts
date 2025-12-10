@@ -5,6 +5,7 @@ import { AppError } from '../../utils/http';
 import { smsService } from '../../utils/sms';
 import { notify } from '../../utils/notify';
 import { logger } from '../../config/logger';
+import { getFees } from '../../utils/settings';
 
 export async function createOrder(input: CreateOrderInput) {
   const { customerUserId, items, restaurantId, deliveryMethod, paymentMethod, notes, address, estimatedDistanceKm } = input;
@@ -42,12 +43,9 @@ export async function createOrder(input: CreateOrderInput) {
     });
   }
 
-  const serviceFee = 0; // logic for service fee?
-  let deliveryFee = 0;
-  if (deliveryMethod === 'campus' || deliveryMethod === 'offcampus') {
-    deliveryFee = restaurant.deliveryFeeCampus || 1500;
-    // logic for distance based fee?
-  }
+  const fees = await getFees({ method: deliveryMethod, km: estimatedDistanceKm });
+  const serviceFee = fees.SERVICE_FEE;
+  const deliveryFee = fees.deliveryFee;
 
   const total = subtotal + serviceFee + deliveryFee;
 

@@ -322,7 +322,7 @@ ordersRouter.post('/:id/assign-mission', rbac(['merchant','admin','superadmin','
       customerLocation: order.address || 'A récupérer',
       customerPhone: '+243 000 000 000', // Should fetch real phone from user
       status: 'available',
-      earning: 2000
+      earning: order.deliveryFee || 1000
     }
   });
   

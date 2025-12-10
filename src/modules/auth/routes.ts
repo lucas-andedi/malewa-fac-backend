@@ -15,6 +15,95 @@ function generateOtp(): string {
 
 /**
  * @swagger
+ * /api/v1/auth/forgot-password:
+ *   post:
+ *     summary: Initiate password reset
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phone]
+ *             properties:
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: OTP sent
+ */
+authRouter.post('/forgot-password', asyncHandler(async (req: Request, res: Response) => {
+  const { phone } = req.body as { phone: string };
+  if (!phone) return res.status(400).json({ error: { message: 'Phone required' } });
+
+  const user = await prisma.user.findUnique({ where: { phone } });
+  if (!user) return res.status(404).json({ error: { message: 'User not found' } });
+
+  const otp = generateOtp();
+  const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { otp, otpExpiresAt }
+  });
+
+  await smsService.sendOtp(phone, otp);
+
+  res.json({ message: 'OTP sent' });
+}));
+
+/**
+ * @swagger
+ * /api/v1/auth/reset-password:
+ *   post:
+ *     summary: Reset password with OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phone, otp, newPassword]
+ *             properties:
+ *               phone:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ */
+authRouter.post('/reset-password', asyncHandler(async (req: Request, res: Response) => {
+  const { phone, otp, newPassword } = req.body as { phone: string; otp: string; newPassword: string };
+  if (!phone || !otp || !newPassword) return res.status(400).json({ error: { message: 'Phone, OTP and new password required' } });
+
+  const user = await prisma.user.findUnique({ where: { phone } });
+  if (!user) return res.status(404).json({ error: { message: 'User not found' } });
+
+  if (!user.otp || !user.otpExpiresAt || new Date() > user.otpExpiresAt || user.otp !== otp) {
+    return res.status(400).json({ error: { message: 'Invalid or expired OTP' } });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { 
+      passwordHash,
+      otp: null,
+      otpExpiresAt: null
+    }
+  });
+
+  res.json({ message: 'Password reset successful' });
+}));
+
+/**
+ * @swagger
  * /api/v1/auth/register:
  *   post:
  *     summary: Register a new user
