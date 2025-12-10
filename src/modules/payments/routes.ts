@@ -195,8 +195,8 @@ paymentsRouter.post('/intent', asyncHandler(async (req: Request, res: Response) 
         customer_number: phoneNumber,
         reference: `ORD-${order.code}`,
         method: provider, // let mokoService detect if not provided
-        firstname: 'Idolo',
-        lastname: 'Technologie',
+        firstname: 'Malewa',
+        lastname: 'Fac',
         email: 'joellucasandedi@gmail.com'
     });
 
