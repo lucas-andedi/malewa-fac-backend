@@ -167,7 +167,7 @@ restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddl
  *       200:
  *         description: Restaurant updated
  */
-restaurantsRouter.patch('/:id', rbac(['merchant','admin','superadmin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
+restaurantsRouter.patch('/:id', rbac(['merchant','admin','superadmin','agent']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
 
@@ -181,6 +181,10 @@ restaurantsRouter.patch('/:id', rbac(['merchant','admin','superadmin']), uploadM
   // Check permissions
   if (user.role === 'merchant' && resto.ownerUserId !== user.id) {
     return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
+  if (user.role === 'agent') {
+    const access = await prisma.restaurantAgent.findUnique({ where: { userId_restaurantId: { userId: user.id, restaurantId: id } } });
+    if (!access) return res.status(403).json({ error: { message: 'Forbidden' } });
   }
 
   // Handle institutionIds
@@ -196,7 +200,12 @@ restaurantsRouter.patch('/:id', rbac(['merchant','admin','superadmin']), uploadM
 
   let photoUrl = req.body.photoUrl;
   if (req.file) {
-    photoUrl = await uploadToSpaces(req.file, 'restaurants');
+    try {
+      photoUrl = await uploadToSpaces(req.file, 'restaurants');
+    } catch (e: any) {
+      console.error('Upload failed:', e);
+      return res.status(500).json({ error: { message: 'Image upload failed: ' + e.message } });
+    }
   }
 
   // If updating, reset status to pending if it was rejected, to allow re-review
@@ -457,7 +466,7 @@ restaurantsRouter.get('/:id/orders', rbac(['merchant','admin','superadmin']), as
  *       201:
  *         description: Dish created
  */
-restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin','superadmin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
+restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin','superadmin','agent']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
   
@@ -473,11 +482,20 @@ restaurantsRouter.post('/:id/dishes', rbac(['merchant','admin','superadmin']), u
   
   const user = (req as any).user as { id: number; role: string };
   if (user.role === 'merchant' && resto.ownerUserId && resto.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
+  if (user.role === 'agent') {
+    const access = await prisma.restaurantAgent.findUnique({ where: { userId_restaurantId: { userId: user.id, restaurantId: id } } });
+    if (!access) return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
   
   // Handle image upload if present
   let photoUrl = req.body.photoUrl; // Optional: allow passing URL directly if no file
   if (req.file) {
-    photoUrl = await uploadToSpaces(req.file, 'dishes');
+    try {
+      photoUrl = await uploadToSpaces(req.file, 'dishes');
+    } catch (e: any) {
+      console.error('Upload failed:', e);
+      return res.status(500).json({ error: { message: 'Image upload failed: ' + e.message } });
+    }
   }
 
   const created = await prisma.dish.create({ 
@@ -525,13 +543,17 @@ restaurantsRouter.get('/:id/dishes', asyncHandler(async (req: Request, res: Resp
 
   if (all) {
     const user = (req as any).user as { id: number; role: string } | undefined;
-    if (!user || (user.role !== 'merchant' && user.role !== 'admin')) {
+    if (!user || (user.role !== 'merchant' && user.role !== 'admin' && user.role !== 'agent')) {
       return res.status(403).json({ error: { message: 'Forbidden' } });
     }
     if (user.role === 'merchant') {
       const resto = await prisma.restaurant.findUnique({ where: { id } });
       if (!resto) return res.status(404).json({ error: { message: 'Restaurant not found' } });
       if (resto.ownerUserId && resto.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
+    }
+    if (user.role === 'agent') {
+      const access = await prisma.restaurantAgent.findUnique({ where: { userId_restaurantId: { userId: user.id, restaurantId: id } } });
+      if (!access) return res.status(403).json({ error: { message: 'Forbidden' } });
     }
     const allDishes = await prisma.dish.findMany({ where: { restaurantId: id }, orderBy: { name: 'asc' }, include });
     return res.json(allDishes);

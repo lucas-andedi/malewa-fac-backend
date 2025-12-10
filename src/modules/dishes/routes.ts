@@ -41,7 +41,7 @@ export const dishesRouter = Router();
  *       200:
  *         description: Dish updated
  */
-dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
+dishesRouter.patch('/:id', rbac(['merchant','admin','superadmin','agent']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid dish id' } });
   
@@ -50,6 +50,10 @@ dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('
   
   const user = (req as any).user as { id: number; role: string };
   if (user.role === 'merchant' && dish.restaurant.ownerUserId && dish.restaurant.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
+  if (user.role === 'agent') {
+    const access = await prisma.restaurantAgent.findUnique({ where: { userId_restaurantId: { userId: user.id, restaurantId: dish.restaurantId } } });
+    if (!access) return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
 
   // Extract fields from body (multipart/form-data implies strings)
   const { name, description, available, categoryId } = req.body as { name?: string; description?: string; available?: string|boolean; categoryId?: string|number };
@@ -62,7 +66,12 @@ dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('
 
   let photoUrl = req.body.photoUrl;
   if (req.file) {
-    photoUrl = await uploadToSpaces(req.file, 'dishes');
+    try {
+      photoUrl = await uploadToSpaces(req.file, 'dishes');
+    } catch (e: any) {
+      console.error('Upload failed:', e);
+      return res.status(500).json({ error: { message: 'Image upload failed: ' + e.message } });
+    }
   }
 
   const availableBool = available === 'true' || available === true ? true : (available === 'false' || available === false ? false : undefined);
@@ -100,13 +109,17 @@ dishesRouter.patch('/:id', rbac(['merchant','admin']), uploadMiddleware.single('
  *       200:
  *         description: Dish deleted
  */
-dishesRouter.delete('/:id', rbac(['merchant','admin']), asyncHandler(async (req: Request, res: Response) => {
+dishesRouter.delete('/:id', rbac(['merchant','admin','superadmin','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid dish id' } });
   const dish = await prisma.dish.findUnique({ where: { id }, include: { restaurant: true } });
   if (!dish) return res.status(404).json({ error: { message: 'Dish not found' } });
   const user = (req as any).user as { id: number; role: string };
   if (user.role === 'merchant' && dish.restaurant.ownerUserId && dish.restaurant.ownerUserId !== user.id) return res.status(403).json({ error: { message: 'Forbidden' } });
+  if (user.role === 'agent') {
+    const access = await prisma.restaurantAgent.findUnique({ where: { userId_restaurantId: { userId: user.id, restaurantId: dish.restaurantId } } });
+    if (!access) return res.status(403).json({ error: { message: 'Forbidden' } });
+  }
   await prisma.dish.delete({ where: { id } });
   res.json({ ok: true });
 }));
