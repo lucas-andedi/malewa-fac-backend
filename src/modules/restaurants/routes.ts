@@ -42,7 +42,7 @@ export const restaurantsRouter = Router();
  */
 restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddleware.single('image'), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number; institutionId?: number; role: string };
-  const { name, deliveryFeeCampus, address, description } = req.body;
+  const { name, deliveryFeeCampus, address, description, isAvailable, openingTime, closingTime } = req.body;
   let institutionIds = req.body.institutionIds;
 
   if (!name) return res.status(400).json({ error: { message: 'Name required' } });
@@ -80,6 +80,9 @@ restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddl
       status,
       ownerUserId,
       deliveryFeeCampus: deliveryFeeCampus ? Number(deliveryFeeCampus) : 1000,
+      isAvailable: isAvailable === 'true' || isAvailable === true,
+      openingTime,
+      closingTime,
       code: name.substring(0,3).toUpperCase() + Math.floor(Math.random()*1000),
       photoUrl,
       institutionLinks: {
@@ -172,7 +175,7 @@ restaurantsRouter.patch('/:id', rbac(['merchant','admin','superadmin','agent']),
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid restaurant id' } });
 
   const user = (req as any).user as { id: number; role: string };
-  const { name, deliveryFeeCampus, address, description } = req.body;
+  const { name, deliveryFeeCampus, address, description, isAvailable, openingTime, closingTime } = req.body;
   let institutionIds = req.body.institutionIds;
 
   const resto = await prisma.restaurant.findUnique({ where: { id } });
@@ -218,6 +221,9 @@ restaurantsRouter.patch('/:id', rbac(['merchant','admin','superadmin','agent']),
       address,
       description,
       deliveryFeeCampus: deliveryFeeCampus ? Number(deliveryFeeCampus) : undefined,
+      isAvailable: isAvailable === 'true' || isAvailable === true ? true : (isAvailable === 'false' || isAvailable === false ? false : undefined),
+      openingTime,
+      closingTime,
       photoUrl,
       status: newStatus, // Reset status if rejected
       institutionLinks: uniqueInstitutionIds ? {
@@ -281,7 +287,7 @@ restaurantsRouter.get('/mine', rbac(['merchant']), asyncHandler(async (req: Requ
 restaurantsRouter.get('/', asyncHandler(async (req: Request, res: Response) => {
   const { institutionCode } = req.query as { institutionCode?: string };
 
-  let where: any = { status: 'active' }; // Only show active restaurants publicly
+  let where: any = { status: 'active', isAvailable: true }; // Only show active and available restaurants publicly
   if (institutionCode) {
     where.institutionLinks = { some: { institution: { code: institutionCode } } };
   }

@@ -119,6 +119,9 @@ model Restaurant {
   agents             RestaurantAgent[]
   rating             Decimal?   @db.Decimal(3, 2)
   deliveryFeeCampus  Int        @default(1000)
+  isAvailable        Boolean    @default(true)
+  openingTime        String?    // Format "HH:mm" e.g. "08:00"
+  closingTime        String?    // Format "HH:mm" e.g. "22:00"
   photoUrl           String?
   createdAt          DateTime   @default(now())
   dishes             Dish[]

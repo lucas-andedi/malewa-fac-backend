@@ -385,7 +385,7 @@ authRouter.get('/me', asyncHandler(async (req: Request, res: Response) => {
     where: { id: user.id },
     include: {
       managedRestaurants: {
-        include: { restaurant: { select: { id: true, name: true, photoUrl: true, address: true } } }
+        include: { restaurant: { select: { id: true, name: true, photoUrl: true, address: true, isAvailable: true } } }
       }
     }
   });
