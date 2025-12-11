@@ -97,9 +97,11 @@ export async function createOrder(input: CreateOrderInput) {
         }
     });
 
+    const deliveryLabel = order.deliveryMethod === 'pickup' ? 'Sur place' : order.deliveryMethod === 'campus' ? 'Campus' : 'Hors campus';
+
     for (const d of dispatchers) {
         if (d.phone) {
-            await smsService.sendSms(d.phone, `Malewa-Fac: Nouvelle commande ${order.code} à confirmer. Client: ${order.customerName}. Total: ${order.total} FC.`);
+            await smsService.sendSms(d.phone, `Malewa-Fac: Nouvelle commande ${order.code} à confirmer. Client: ${order.customerName}. Total: ${order.total} FC. Mode: ${deliveryLabel}.`);
         }
     }
 

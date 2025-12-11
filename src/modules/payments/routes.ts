@@ -299,8 +299,8 @@ paymentsRouter.post('/mobile/initiate', asyncHandler(async (req: Request, res: R
         customer_number: targetPhone,
         reference: `ORD-${order.code}`,
         method: provider,
-        firstname: 'Idolo',
-        lastname: 'Technologie',
+        firstname: 'Malewa',
+        lastname: 'Fac',
         email: 'joellucasandedi@gmail.com'
     });
 

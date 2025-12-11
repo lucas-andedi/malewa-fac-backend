@@ -170,7 +170,8 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent
       // SMS: "New Order added"
       const owner = await prisma.user.findUnique({ where: { id: resto.ownerUserId } });
       if (owner?.phone) {
-        await smsService.sendSms(owner.phone, `Malewa-Fac: Nouvelle commande ${updated.code} de ${updated.customerName}. Total: ${updated.total} FC. Connectez-vous pour accepter.`);
+        const deliveryLabel = updated.deliveryMethod === 'pickup' ? 'Sur place' : updated.deliveryMethod === 'campus' ? 'Campus' : 'Hors campus';
+        await smsService.sendSms(owner.phone, `Malewa-Fac: Nouvelle commande ${updated.code} de ${updated.customerName}. Total: ${updated.total} FC. Mode: ${deliveryLabel}. Connectez-vous pour accepter.`);
       }
     }
   } catch (e) {
@@ -256,11 +257,21 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
       data: { orderId: updated.id, code: updated.code, status }
     });
 
+    // SMS to Customer if order ready for pickup
+    if (status === 'ready' && updated.deliveryMethod === 'pickup') {
+        const customer = await prisma.user.findUnique({ where: { id: updated.customerUserId } });
+        if (customer?.phone) {
+            await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${updated.code} est prête. Mode: Sur place. Veuillez passer physiquement au restaurant pour la récupérer.`);
+        }
+    }
+
     // SMS to Customer if Delivered
     if (status === 'delivered') {
         const customer = await prisma.user.findUnique({ where: { id: updated.customerUserId } });
         if (customer?.phone) {
-            await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${updated.code} a été livrée. Merci et bon appétit !`);
+            const deliveryLabel = updated.deliveryMethod === 'pickup' ? 'Sur place' : updated.deliveryMethod === 'campus' ? 'Campus' : 'Hors campus';
+            const deliveredText = updated.deliveryMethod === 'pickup' ? 'a été retirée au restaurant' : 'a été livrée';
+            await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${updated.code} ${deliveredText}. Mode: ${deliveryLabel}. Merci !`);
         }
     }
 

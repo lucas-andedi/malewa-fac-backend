@@ -43,7 +43,7 @@ missionsRouter.get('/', rbac(['courier','admin']), asyncHandler(async (req: Requ
     orderBy: { id: 'desc' },
     include: {
       restaurant: { select: { name: true, address: true } },
-      order: { select: { code: true, customerName: true, items: true, total: true } }
+      order: { select: { code: true, customerName: true, items: true, total: true, paymentMethod: true, deliveryMethod: true } }
     }
   });
   
@@ -55,6 +55,8 @@ missionsRouter.get('/', rbac(['courier','admin']), asyncHandler(async (req: Requ
     orderCode: m.order.code,
     customerName: m.order.customerName,
     orderTotal: m.order.total,
+    paymentMethod: m.order.paymentMethod,
+    deliveryMethod: m.order.deliveryMethod,
     items: m.order.items,
     restaurant: undefined,
     order: undefined
@@ -93,7 +95,7 @@ missionsRouter.post('/:id/accept', rbac(['courier']), asyncHandler(async (req: R
     data: { status: 'accepted', courierUserId: user.id },
     include: {
       restaurant: { select: { name: true, address: true } },
-      order: { select: { code: true, customerName: true, items: true, total: true } }
+      order: { select: { code: true, customerName: true, items: true, total: true, paymentMethod: true, deliveryMethod: true } }
     }
   });
 
@@ -104,6 +106,8 @@ missionsRouter.post('/:id/accept', rbac(['courier']), asyncHandler(async (req: R
     orderCode: updated.order.code,
     customerName: updated.order.customerName,
     orderTotal: updated.order.total,
+    paymentMethod: updated.order.paymentMethod,
+    deliveryMethod: updated.order.deliveryMethod,
     items: updated.order.items,
     restaurant: undefined,
     order: undefined
@@ -208,7 +212,8 @@ missionsRouter.patch('/:id/status', rbac(['courier']), asyncHandler(async (req: 
       if (status === 'delivered') {
          const customer = await prisma.user.findUnique({ where: { id: order.customerUserId } });
          if (customer?.phone) {
-             await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${order.code} a été livrée par le coursier. Merci!`);
+             const deliveryLabel = order.deliveryMethod === 'pickup' ? 'Sur place' : order.deliveryMethod === 'campus' ? 'Campus' : 'Hors campus';
+             await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${order.code} a été livrée. Mode: ${deliveryLabel}. Merci !`);
          }
       }
     }
