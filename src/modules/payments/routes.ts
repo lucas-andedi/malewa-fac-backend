@@ -53,7 +53,7 @@ async function getSetting(key: string, fallback: number): Promise<number> {
 paymentsRouter.post('/cart-intent', asyncHandler(async (req: Request, res: Response) => {
   const { restaurantId, items, deliveryMethod, estimatedDistanceKm } = req.body as {
     restaurantId?: number;
-    items?: Array<{ dishId: number; qty: number }>;
+    items?: Array<{ dishId: number; qty: number; customPrice?: number }>;
     deliveryMethod?: 'pickup'|'campus'|'offcampus';
     estimatedDistanceKm?: number;
   };
@@ -71,7 +71,8 @@ paymentsRouter.post('/cart-intent', asyncHandler(async (req: Request, res: Respo
   if (dishes.length !== items.length) return res.status(400).json({ error: { message: 'Invalid items' } });
   const subtotal = items.reduce((s, i) => {
     const d = dishes.find(x => x.id === i.dishId)!;
-    return s + d.price * i.qty;
+    const price = (i.customPrice && i.customPrice > d.price) ? i.customPrice : d.price;
+    return s + price * i.qty;
   }, 0);
 
   // Fees
