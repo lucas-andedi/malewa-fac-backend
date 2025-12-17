@@ -43,7 +43,7 @@ missionsRouter.get('/', rbac(['courier','admin']), asyncHandler(async (req: Requ
     orderBy: { id: 'desc' },
     include: {
       restaurant: { select: { name: true, address: true } },
-      order: { select: { code: true, customerName: true, items: true, total: true, paymentMethod: true, deliveryMethod: true } }
+      order: { select: { code: true, customerName: true, items: true, total: true, paymentMethod: true, deliveryMethod: true, notes: true } }
     }
   });
   
@@ -95,7 +95,7 @@ missionsRouter.post('/:id/accept', rbac(['courier']), asyncHandler(async (req: R
     data: { status: 'accepted', courierUserId: user.id },
     include: {
       restaurant: { select: { name: true, address: true } },
-      order: { select: { code: true, customerName: true, items: true, total: true, paymentMethod: true, deliveryMethod: true } }
+      order: { select: { code: true, customerName: true, items: true, total: true, paymentMethod: true, deliveryMethod: true, notes: true } }
     }
   });
 
@@ -105,6 +105,7 @@ missionsRouter.post('/:id/accept', rbac(['courier']), asyncHandler(async (req: R
     restaurantAddress: updated.restaurant.address || updated.restaurantLocation,
     orderCode: updated.order.code,
     customerName: updated.order.customerName,
+    orderNotes: updated.order.notes,
     orderTotal: updated.order.total,
     paymentMethod: updated.order.paymentMethod,
     deliveryMethod: updated.order.deliveryMethod,

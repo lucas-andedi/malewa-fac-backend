@@ -58,7 +58,7 @@ export const ordersRouter = Router();
  *       201:
  *         description: Order created
  */
-ordersRouter.post('/', validate(CreateOrderSchema), asyncHandler(async (req: Request, res: Response) => {
+ordersRouter.post('/', rbac(['client','merchant','courier','admin','superadmin','dispatcher','agent']), validate(CreateOrderSchema), asyncHandler(async (req: Request, res: Response) => {
   const order = await createOrder(req.body as any);
   res.status(201).json(order);
 }));
@@ -75,7 +75,7 @@ ordersRouter.post('/', validate(CreateOrderSchema), asyncHandler(async (req: Req
  *       200:
  *         description: List of orders
  */
-ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
+ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
   const user = (req as any).user as { id: number; role: string };
   const orders = await prisma.order.findMany({
     where: { customerUserId: user.id },
@@ -103,7 +103,7 @@ ordersRouter.get('/me', rbac(['client','merchant','courier','admin','superadmin'
  *       200:
  *         description: Order details
  */
-ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin','dispatcher']), asyncHandler(async (req: Request, res: Response) => {
+ordersRouter.get('/:id', rbac(['client','merchant','courier','admin','superadmin','dispatcher','agent']), asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: { message: 'Invalid order id' } });
   const order = await prisma.order.findUnique({ where: { id }, include: { items: true } });

@@ -6,6 +6,7 @@ import { env } from '../../config/env';
 import { mokoService } from '../../utils/moko';
 import { createOrder } from '../orders/service';
 import { notify } from '../../utils/notify';
+import { rbac } from '../../middlewares/rbac';
 
 export const paymentsRouter = Router();
 
@@ -232,7 +233,7 @@ paymentsRouter.post('/webhook', asyncHandler(async (req: Request, res: Response)
  *       201:
  *         description: Payment initiated
  */
-paymentsRouter.post('/mobile/initiate', asyncHandler(async (req: Request, res: Response) => {
+paymentsRouter.post('/mobile/initiate', rbac(['client','merchant','admin']), asyncHandler(async (req: Request, res: Response) => {
     // Forward to /intent logic manually
     // Legacy payload might differ, but assuming similar fields
     // If legacy used `orderCode`, we need to find ID.
