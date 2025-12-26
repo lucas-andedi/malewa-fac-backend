@@ -6,9 +6,10 @@ import { smsService } from '../../utils/sms';
 import { notify } from '../../utils/notify';
 import { logger } from '../../config/logger';
 import { getFees } from '../../utils/settings';
+import { applyPromoCodeToOrder, applyVoucherToOrder } from '../promo/routes';
 
 export async function createOrder(input: CreateOrderInput) {
-  const { customerUserId, items, restaurantId, deliveryMethod, paymentMethod, notes, address, estimatedDistanceKm } = input;
+  const { customerUserId, items, restaurantId, deliveryMethod, paymentMethod, notes, address, estimatedDistanceKm, promoCode, voucherCode } = input;
 
   // Ensure customer exists
   if (!customerUserId) {
@@ -47,7 +48,8 @@ export async function createOrder(input: CreateOrderInput) {
   const serviceFee = fees.SERVICE_FEE;
   const deliveryFee = fees.deliveryFee;
 
-  const total = subtotal + serviceFee + deliveryFee;
+  let totalBeforeDiscount = subtotal + serviceFee + deliveryFee;
+  let discount = 0;
 
   // Transaction
   const order = await prisma.$transaction(async (tx) => {
@@ -63,7 +65,10 @@ export async function createOrder(input: CreateOrderInput) {
         deliveryFee,
         deliveryMethod,
         paymentMethod,
-        total,
+        total: totalBeforeDiscount, // Will be updated after voucher
+        discount: 0,
+        promoCodeUsed: promoCode?.toUpperCase() || null,
+        voucherUsed: voucherCode?.toUpperCase() || null,
         address,
         notes,
         estimatedDistanceKm,
@@ -85,6 +90,40 @@ export async function createOrder(input: CreateOrderInput) {
 
     return newOrder;
   });
+
+  // Apply promo code after order creation (gives point to owner)
+  if (promoCode) {
+    try {
+      const promoResult = await applyPromoCodeToOrder(promoCode, order.id, customerUserId);
+      if (!promoResult.success) {
+        logger.warn({ promoCode, error: promoResult.error }, 'Promo code application failed');
+      }
+    } catch (e) {
+      logger.error({ err: e, promoCode }, 'Error applying promo code');
+    }
+  }
+
+  // Apply voucher (gives discount)
+  if (voucherCode) {
+    try {
+      const voucherResult = await applyVoucherToOrder(voucherCode, order.id, customerUserId, totalBeforeDiscount);
+      if (voucherResult.success && voucherResult.discount) {
+        discount = voucherResult.discount;
+        const newTotal = totalBeforeDiscount - discount;
+        // Update order with discount
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { discount, total: newTotal }
+        });
+        (order as any).discount = discount;
+        (order as any).total = newTotal;
+      } else if (!voucherResult.success) {
+        logger.warn({ voucherCode, error: voucherResult.error }, 'Voucher application failed');
+      }
+    } catch (e) {
+      logger.error({ err: e, voucherCode }, 'Error applying voucher');
+    }
+  }
 
   // Notifications
   try {

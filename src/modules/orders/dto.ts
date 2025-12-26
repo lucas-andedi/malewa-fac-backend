@@ -16,6 +16,8 @@ export const CreateOrderSchema = z.object({
     notes: z.string().optional(),
     estimatedDistanceKm: z.number().positive().optional(),
     paymentIntentId: z.string().optional(),
+    promoCode: z.string().optional(),
+    voucherCode: z.string().optional(),
   })
 });
 

@@ -622,3 +622,49 @@ adminRouter.put('/settings', rbac(['superadmin']), asyncHandler(async (req: Requ
   await prisma.$transaction(ops);
   res.json({ ok: true });
 }));
+
+/**
+ * @swagger
+ * /api/v1/admin/users/search:
+ *   get:
+ *     summary: Search user by phone number
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: phone
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User found or null
+ */
+adminRouter.get('/users/search', rbac(['admin','superadmin']), asyncHandler(async (req: Request, res: Response) => {
+  const phone = (req.query as any).phone as string;
+  if (!phone || phone.trim().length < 3) {
+    return res.status(400).json({ error: { message: 'Phone number required (min 3 chars)' } });
+  }
+  
+  // Normalize phone: remove spaces, dashes
+  const normalized = phone.replace(/[\s\-]/g, '');
+  
+  // Search by phone containing the query (partial match)
+  const users = await prisma.user.findMany({
+    where: {
+      phone: { contains: normalized }
+    },
+    take: 10,
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      role: true,
+      status: true
+    }
+  });
+  
+  res.json(users);
+}));

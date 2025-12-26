@@ -22,6 +22,7 @@ import { supportRouter } from './modules/support/routes';
 import { stripeWebhookHandler } from './modules/payments/stripeWebhook';
 import { notificationsRouter } from './modules/notifications/routes';
 import { uploadRouter } from './modules/upload/routes';
+import { promoRouter } from './modules/promo/routes';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 
@@ -55,6 +56,7 @@ app.use('/api/v1/transactions', transactionsRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/support', supportRouter);
 app.use('/api/v1/upload', uploadRouter);
+app.use('/api/v1/promo', promoRouter);
 
 // Error handler
 app.use(errorHandler);

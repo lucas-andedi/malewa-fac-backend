@@ -94,6 +94,12 @@ model User {
   missions       DeliveryMission[] @relation("MissionCourier")
   notifications  Notification[]
   supportTickets SupportTicket[]
+  promoCodes     PromoCode[]  @relation("PromoCodeOwner")
+  promoCodeUsages PromoCodeUsage[] @relation("PromoCodeUsedBy")
+  ownedVouchers  DiscountVoucher[] @relation("VoucherOwner")
+  usedVouchers   DiscountVoucher[] @relation("VoucherUsedBy")
+  sharedVouchers DiscountVoucher[] @relation("VoucherSharedTo")
+  promoCodeRequests PromoCodeRequest[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 }
@@ -205,6 +211,9 @@ model Order {
   deliveryMethod     DeliveryMethod
   deliveryFee        Int
   total              Int
+  discount           Int          @default(0)
+  promoCodeUsed      String?
+  voucherUsed        String?
   paymentMethod      PaymentMethod
   address            String?
   notes              String?      @db.Text
@@ -216,6 +225,8 @@ model Order {
   missions           DeliveryMission[]
   payments           Payment[]
   transactions       Transaction[]
+  promoCodeUsages    PromoCodeUsage[]
+  voucherUsages      DiscountVoucher[]
 }
 
 model OrderItem {
@@ -324,4 +335,73 @@ model SupportTicket {
   priority    TicketPriority @default(medium)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ==================== PROMO CODE SYSTEM ====================
+
+enum PromoCodeRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum DiscountVoucherStatus {
+  active
+  used
+  expired
+  transferred
+}
+
+model PromoCode {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  ownerUserId Int
+  owner       User     @relation("PromoCodeOwner", fields: [ownerUserId], references: [id])
+  points      Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  usages      PromoCodeUsage[]
+}
+
+model PromoCodeUsage {
+  id           Int       @id @default(autoincrement())
+  promoCodeId  Int
+  promoCode    PromoCode @relation(fields: [promoCodeId], references: [id])
+  orderId      Int
+  order        Order     @relation(fields: [orderId], references: [id])
+  usedByUserId Int
+  usedBy       User      @relation("PromoCodeUsedBy", fields: [usedByUserId], references: [id])
+  createdAt    DateTime  @default(now())
+
+  @@unique([promoCodeId, orderId])
+}
+
+model DiscountVoucher {
+  id              Int                   @id @default(autoincrement())
+  code            String                @unique
+  ownerUserId     Int
+  owner           User                  @relation("VoucherOwner", fields: [ownerUserId], references: [id])
+  discountPercent Int                   @default(10)
+  status          DiscountVoucherStatus @default(active)
+  usedByUserId    Int?
+  usedBy          User?                 @relation("VoucherUsedBy", fields: [usedByUserId], references: [id])
+  usedOnOrderId   Int?
+  usedOnOrder     Order?                @relation(fields: [usedOnOrderId], references: [id])
+  sharedToUserId  Int?
+  sharedTo        User?                 @relation("VoucherSharedTo", fields: [sharedToUserId], references: [id])
+  expiresAt       DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
+
+model PromoCodeRequest {
+  id        Int                    @id @default(autoincrement())
+  userId    Int
+  user      User                   @relation(fields: [userId], references: [id])
+  status    PromoCodeRequestStatus @default(pending)
+  reason    String?                @db.Text
+  adminNote String?                @db.Text
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
 }
