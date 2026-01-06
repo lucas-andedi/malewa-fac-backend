@@ -35,9 +35,9 @@ export const env = {
   mokoMerchantId: process.env.MOKO_MERCHANT_ID || '',
   mokoMerchantSecret: process.env.MOKO_MERCHANT_SECRET || '',
   // SMS Configuration
-  smsUser: process.env.SMS_USER || 'johnnyetsha@gmail.com',
-  smsPassword: process.env.SMS_PASSWORD || 'Johnny1#',
-  smsSender: process.env.SMS_SENDER || 'NkoloArt',
-  smsApiUrl: process.env.SMS_API_URL || 'https://sms.eliajimmy.net/apisms.php',
+  smsUser: process.env.SMS_USER || 'API31616753024',
+  smsPassword: process.env.SMS_PASSWORD || 'P0bjpB4rM4',
+  smsSender: process.env.SMS_SENDER || 'Malewa-Fac',
+  smsApiUrl: process.env.SMS_API_URL || 'https://api2.dream-digital.info/api/SendSMS',
 };
 

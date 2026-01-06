@@ -32,41 +32,45 @@ class SmsService {
   async sendOtp(phone: string, otp: string): Promise<void> {
     try {
       const message = `Votre code de vérification Malewa-Fac est: ${otp}. Ce code expire dans 10 minutes.`;
-      
-      // Encoder les paramètres pour l'URL
-      const encodedPassword = encodeURIComponent(this.smsPassword);
-      const encodedMessage = encodeURIComponent(message);
-      const encodedSender = encodeURIComponent(this.smsSender);
-      
+
       const cleanPhone = this.formatPhone(phone);
 
       logger.info(`📤 Envoi SMS OTP vers ${phone} (formaté: ${cleanPhone})`);
 
-      const url = `${this.smsApiUrl}?user=${this.smsUser}&password=${encodedPassword}&message=${encodedMessage}&expediteur=${encodedSender}&telephone=${cleanPhone}`;
+      const payload = {
+        api_id: this.smsUser,
+        api_password: this.smsPassword,
+        sms_type: 'T',
+        encoding: 'T',
+        sender_id: this.smsSender,
+        phonenumber: cleanPhone,
+        textmessage: message,
+      };
 
-      const response = await axios.get(url, {
+      const response = await axios.post(this.smsApiUrl, payload, {
         headers: {
-            'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
-        timeout: 15000
+        timeout: 10000,
       });
 
-      if (response.data) {
-        logger.info(`✅ SMS OTP envoyé avec succès vers ${phone}`);
-        // Check if response contains error-like strings even if 200 OK
-        if (typeof response.data === 'string' && (response.data.includes('error') || response.data.includes('Echec'))) {
-            logger.warn(`⚠️ Réponse API SMS suspecte: ${response.data}`);
-        } else {
-            logger.debug(`Réponse API SMS: ${JSON.stringify(response.data)}`);
-        }
+      const data = response.data;
+
+      if (data && data.status === 'S') {
+        logger.info(`✅ SMS OTP envoyé avec succès vers ${phone} (ID: ${data.message_id})`);
       } else {
-        logger.warn(`⚠️ Réponse SMS API inattendue (vide) pour ${phone}. Status: ${response.status}`);
+        logger.warn(
+          `⚠️ Échec de l'envoi SMS OTP vers ${phone}: ${data?.remarks || 'Erreur inconnue'}`,
+        );
+        logger.debug(`Détails réponse SMS OTP: ${JSON.stringify(data)}`);
       }
     } catch (error: any) {
-      logger.error(`❌ Erreur lors de l'envoi du SMS vers ${phone}: ${error.message}`);
+      logger.error(`❌ Erreur lors de l'envoi du SMS OTP vers ${phone}: ${error.message}`);
       if (error.response) {
-        logger.error(`Réponse API SMS (Erreur): ${JSON.stringify(error.response.data)}`);
+        logger.error(`Réponse API SMS (Erreur OTP): ${JSON.stringify(error.response.data)}`);
       }
+      throw error;
     }
   }
 
@@ -75,35 +79,46 @@ class SmsService {
    * @param phone Numéro de téléphone au format international
    * @param message Message à envoyer
    */
-  async sendSms(phone: string, message: string): Promise<void> {
+  async sendSms(phone: string, message: string, type: 'T' | 'P' = 'T'): Promise<void> {
     try {
-      const encodedPassword = encodeURIComponent(this.smsPassword);
-      const encodedMessage = encodeURIComponent(message);
-      const encodedSender = encodeURIComponent(this.smsSender);
-      
       const cleanPhone = this.formatPhone(phone);
 
-      const url = `${this.smsApiUrl}?user=${this.smsUser}&password=${encodedPassword}&message=${encodedMessage}&expediteur=${encodedSender}&telephone=${cleanPhone}`;
+      logger.info(`📤 Envoi SMS (${type}) vers ${phone} (formaté: ${cleanPhone})`);
 
-      logger.info(`📤 Envoi SMS vers ${phone} (formaté: ${cleanPhone})`);
+      const payload = {
+        api_id: this.smsUser,
+        api_password: this.smsPassword,
+        sms_type: type,
+        encoding: 'T',
+        sender_id: this.smsSender,
+        phonenumber: cleanPhone,
+        textmessage: message,
+      };
 
-      const response = await axios.get(url, {
+      const response = await axios.post(this.smsApiUrl, payload, {
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
-        timeout: 15000,
+        timeout: 10000,
       });
 
-      if (response.data) {
-        logger.info(`✅ SMS envoyé avec succès vers ${phone}`);
-        if (typeof response.data === 'string' && (response.data.includes('error') || response.data.includes('Echec'))) {
-            logger.warn(`⚠️ Réponse API SMS suspecte: ${response.data}`);
-        }
+      const data = response.data;
+
+      if (data && data.status === 'S') {
+        logger.info(`✅ SMS envoyé avec succès vers ${phone} (ID: ${data.message_id})`);
       } else {
-        logger.warn(`⚠️ Réponse SMS API inattendue (vide) pour ${phone}`);
+        logger.warn(
+          `⚠️ Échec de l'envoi SMS vers ${phone}: ${data?.remarks || 'Erreur inconnue'}`,
+        );
+        logger.debug(`Détails réponse SMS: ${JSON.stringify(data)}`);
       }
     } catch (error: any) {
       logger.error(`❌ Erreur lors de l'envoi du SMS vers ${phone}: ${error.message}`);
+      if (error.response) {
+        logger.error(`Réponse API SMS (Erreur): ${JSON.stringify(error.response.data)}`);
+      }
+      throw error;
     }
   }
 }

@@ -79,13 +79,13 @@ authRouter.post('/forgot-password', asyncHandler(async (req: Request, res: Respo
  */
 authRouter.post('/reset-password', asyncHandler(async (req: Request, res: Response) => {
   const { phone, otp, newPassword } = req.body as { phone: string; otp: string; newPassword: string };
-  if (!phone || !otp || !newPassword) return res.status(400).json({ error: { message: 'Phone, OTP and new password required' } });
+  if (!phone || !otp || !newPassword) return res.status(400).json({ error: { message: 'Téléphone, code OTP et nouveau mot de passe requis' } });
 
   const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user) return res.status(404).json({ error: { message: 'User not found' } });
+  if (!user) return res.status(404).json({ error: { message: 'Utilisateur introuvable' } });
 
   if (!user.otp || !user.otpExpiresAt || new Date() > user.otpExpiresAt || user.otp !== otp) {
-    return res.status(400).json({ error: { message: 'Invalid or expired OTP' } });
+    return res.status(400).json({ error: { message: 'Code OTP invalide ou expiré' } });
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -100,6 +100,21 @@ authRouter.post('/reset-password', asyncHandler(async (req: Request, res: Respon
   });
 
   res.json({ message: 'Password reset successful' });
+}));
+
+// Verify OTP for password reset without changing the password
+authRouter.post('/verify-reset-otp', asyncHandler(async (req: Request, res: Response) => {
+  const { phone, otp } = req.body as { phone: string; otp: string };
+  if (!phone || !otp) return res.status(400).json({ error: { message: 'Téléphone et code OTP requis' } });
+
+  const user = await prisma.user.findUnique({ where: { phone } });
+  if (!user) return res.status(404).json({ error: { message: 'Utilisateur introuvable' } });
+
+  if (!user.otp || !user.otpExpiresAt || new Date() > user.otpExpiresAt || user.otp !== otp) {
+    return res.status(400).json({ error: { message: 'Code OTP invalide ou expiré' } });
+  }
+
+  res.json({ message: 'Code OTP valide' });
 }));
 
 /**
@@ -209,7 +224,7 @@ authRouter.post('/verify-otp', validate(VerifyOtpSchema), asyncHandler(async (re
   const { phone, otp } = req.body as VerifyOtpInput;
 
   const user = await prisma.user.findUnique({ where: { phone } });
-  if (!user) return res.status(404).json({ error: { message: 'User not found' } });
+  if (!user) return res.status(404).json({ error: { message: 'Utilisateur introuvable' } });
 
   if (user.status !== 'pending') {
      // If already active, allow verify to proceed (idempotent) or error?
@@ -222,15 +237,15 @@ authRouter.post('/verify-otp', validate(VerifyOtpSchema), asyncHandler(async (re
   }
 
   if (!user.otp || !user.otpExpiresAt) {
-    return res.status(400).json({ error: { message: 'No OTP pending' } });
+    return res.status(400).json({ error: { message: 'Aucun code OTP en attente, veuillez demander un nouveau code.' } });
   }
 
   if (new Date() > user.otpExpiresAt) {
-    return res.status(400).json({ error: { message: 'OTP expired' } });
+    return res.status(400).json({ error: { message: 'Code OTP expiré, veuillez demander un nouveau code.' } });
   }
 
   if (user.otp !== otp) {
-    return res.status(400).json({ error: { message: 'Invalid OTP' } });
+    return res.status(400).json({ error: { message: 'Code OTP invalide.' } });
   }
 
   // Determine final status

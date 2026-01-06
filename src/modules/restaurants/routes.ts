@@ -121,6 +121,31 @@ restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddl
       }
     });
   }
+
+  // Create default mandatory Eau (Water)
+  const drinksCat = await prisma.dishCategory.findFirst({
+    where: { restaurantId: created.id, name: 'Boissons' }
+  });
+
+  if (drinksCat) {
+    // Use unique constraint (restaurantId, name) to avoid duplicates if logic runs multiple times
+    const existingWater = await prisma.dish.findFirst({
+      where: { restaurantId: created.id, name: 'Eau' }
+    });
+    if (!existingWater) {
+      await prisma.dish.create({
+        data: {
+          restaurantId: created.id,
+          name: 'Eau',
+          description: 'Eau obligatoire',
+          price: 1000,
+          available: true,
+          categoryId: drinksCat.id,
+          isMandatory: true
+        }
+      });
+    }
+  }
   
   const response = {
     ...created,
