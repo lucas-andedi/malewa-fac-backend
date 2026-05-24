@@ -122,7 +122,9 @@ restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddl
     });
   }
 
-  // Create default mandatory Eau (Water)
+  // Create a default Eau (Water) — NOT mandatory. Only the Assiette is imposed
+  // by the platform; each restaurant decides whether water (or anything else)
+  // is mandatory via the dish settings.
   const drinksCat = await prisma.dishCategory.findFirst({
     where: { restaurantId: created.id, name: 'Boissons' }
   });
@@ -137,11 +139,11 @@ restaurantsRouter.post('/', rbac(['merchant','admin','superadmin']), uploadMiddl
         data: {
           restaurantId: created.id,
           name: 'Eau',
-          description: 'Eau obligatoire',
+          description: 'Eau',
           price: 1000,
           available: true,
           categoryId: drinksCat.id,
-          isMandatory: true
+          isMandatory: false
         }
       });
     }
