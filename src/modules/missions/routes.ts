@@ -6,6 +6,7 @@ import { rbac } from '../../middlewares/rbac';
 import { ensureMerchantAndCourierTransactions } from '../../utils/finance';
 import { notify } from '../../utils/notify';
 import { smsService } from '../../utils/sms';
+import { notifyParty } from '../../utils/notify-party';
 
 export const missionsRouter = Router();
 
@@ -214,7 +215,7 @@ missionsRouter.patch('/:id/status', rbac(['courier']), asyncHandler(async (req: 
          const customer = await prisma.user.findUnique({ where: { id: order.customerUserId } });
          if (customer?.phone) {
              const deliveryLabel = order.deliveryMethod === 'pickup' ? 'Sur place' : order.deliveryMethod === 'campus' ? 'Campus' : 'Hors campus';
-             await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${order.code} a été livrée. Mode: ${deliveryLabel}. Merci !`);
+             await notifyParty(customer.phone, `Malewa-Fac: Votre commande ${order.code} a été livrée. Mode: ${deliveryLabel}. Merci !`, order.channel);
          }
       }
     }

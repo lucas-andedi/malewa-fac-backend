@@ -14,6 +14,7 @@ export const CreateOrderSchema = z.object({
     paymentMethod: z.enum(['mobile','card','cod']),
     address: z.string().optional(),
     notes: z.string().optional(),
+    channel: z.enum(['web','whatsapp']).optional(),
     estimatedDistanceKm: z.number().positive().optional(),
     paymentIntentId: z.string().optional(),
     promoCode: z.string().optional(),

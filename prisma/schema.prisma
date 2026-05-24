@@ -217,6 +217,7 @@ model Order {
   paymentMethod      PaymentMethod
   address            String?
   notes              String?      @db.Text
+  channel            String?      @default("web")
   estimatedDistanceKm Float?
   status             OrderStatus  @default(received)
   createdAt          DateTime     @default(now())

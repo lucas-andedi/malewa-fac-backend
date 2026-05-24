@@ -9,6 +9,7 @@ import { rbac } from '../../middlewares/rbac';
 import { notify } from '../../utils/notify';
 import { mokoService } from '../../utils/moko';
 import { smsService } from '../../utils/sms';
+import { notifyParty } from '../../utils/notify-party';
 import { logger } from '../../config/logger';
 
 export const ordersRouter = Router();
@@ -171,7 +172,7 @@ ordersRouter.post('/:id/confirm', rbac(['dispatcher','admin','superadmin','agent
       const owner = await prisma.user.findUnique({ where: { id: resto.ownerUserId } });
       if (owner?.phone) {
         const deliveryLabel = updated.deliveryMethod === 'pickup' ? 'Sur place' : updated.deliveryMethod === 'campus' ? 'Campus' : 'Hors campus';
-        await smsService.sendSms(owner.phone, `Malewa-Fac: Nouvelle commande ${updated.code} de ${updated.customerName}. Total: ${updated.total} FC. Mode: ${deliveryLabel}. Connectez-vous pour accepter.`);
+        await notifyParty(owner.phone, `Malewa-Fac: Nouvelle commande ${updated.code} de ${updated.customerName}. Total: ${updated.total} FC. Mode: ${deliveryLabel}. Connectez-vous pour accepter.`, updated.channel);
       }
     }
   } catch (e) {
@@ -261,7 +262,7 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
     if (status === 'ready' && updated.deliveryMethod === 'pickup') {
         const customer = await prisma.user.findUnique({ where: { id: updated.customerUserId } });
         if (customer?.phone) {
-            await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${updated.code} est prête. Mode: Sur place. Veuillez passer physiquement au restaurant pour la récupérer.`);
+            await notifyParty(customer.phone, `Malewa-Fac: Votre commande ${updated.code} est prête. Mode: Sur place. Veuillez passer physiquement au restaurant pour la récupérer.`, updated.channel);
         }
     }
 
@@ -271,7 +272,7 @@ ordersRouter.patch('/:id/status', rbac(['merchant','admin','superadmin','dispatc
         if (customer?.phone) {
             const deliveryLabel = updated.deliveryMethod === 'pickup' ? 'Sur place' : updated.deliveryMethod === 'campus' ? 'Campus' : 'Hors campus';
             const deliveredText = updated.deliveryMethod === 'pickup' ? 'a été retirée au restaurant' : 'a été livrée';
-            await smsService.sendSms(customer.phone, `Malewa-Fac: Votre commande ${updated.code} ${deliveredText}. Mode: ${deliveryLabel}. Merci !`);
+            await notifyParty(customer.phone, `Malewa-Fac: Votre commande ${updated.code} ${deliveredText}. Mode: ${deliveryLabel}. Merci !`, updated.channel);
         }
     }
 

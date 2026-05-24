@@ -9,7 +9,7 @@ import { getFees } from '../../utils/settings';
 import { applyPromoCodeToOrder, applyVoucherToOrder } from '../promo/routes';
 
 export async function createOrder(input: CreateOrderInput) {
-  const { customerUserId, items, restaurantId, deliveryMethod, paymentMethod, notes, address, estimatedDistanceKm, promoCode, voucherCode } = input;
+  const { customerUserId, items, restaurantId, deliveryMethod, paymentMethod, notes, address, estimatedDistanceKm, promoCode, voucherCode, channel } = input;
 
   // Ensure customer exists
   if (!customerUserId) {
@@ -71,6 +71,7 @@ export async function createOrder(input: CreateOrderInput) {
         voucherUsed: voucherCode?.toUpperCase() || null,
         address,
         notes,
+        channel: channel || 'web',
         estimatedDistanceKm,
         status: 'pending_confirmation' as any, // Initial status
         items: {
